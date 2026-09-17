@@ -1,0 +1,30 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Build & Test (.NET 8)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore NuGet packages
+        run: dotnet restore backend/backend.sln
+
+      - name: Build Solution
+        run: dotnet build backend/backend.sln --no-restore --configuration Release
+
+      - name: Run Backend Unit Tests
+        run: dotnet test backend/backend.Tests/backend.Tests.csproj --no-build --configuration Release --verbosity normal

@@ -1,0 +1,64 @@
+# SmartFleet Monorepo .gitignore
+
+# --------------------------------------------------
+# .NET / C# / Visual Studio
+# --------------------------------------------------
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+TestResults/
+*.resharper
+*.dotCover
+
+# --------------------------------------------------
+# Node / React / Vite
+# --------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm
+.eslintcache
+.stylelintcache
+
+# --------------------------------------------------
+# Flutter / Dart
+# --------------------------------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+**/.idea/
+**/android/app/build/
+**/ios/Flutter/ephemeral/
+**/ios/Pods/
+**/linux/flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+**/windows/flutter/ephemeral/
+
+# --------------------------------------------------
+# Environment secrets & credentials
+# --------------------------------------------------
+.env
+.env*.local
+*.pfx
+*.pem
+*.key
+appsettings.Local.json
+
+# --------------------------------------------------
+# OS generated files
+# --------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
