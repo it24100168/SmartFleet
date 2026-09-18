@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SmartFleet.Backend.Agents.MissionPlannerAgent;
 using SmartFleet.Backend.Data;
 using SmartFleet.Backend.Data.Repositories;
 using SmartFleet.Backend.Middleware;
@@ -54,8 +55,12 @@ builder.Services.AddDbContext<SmartFleetDbContext>(options =>
 // 2. Application Services & Repositories
 // --------------------------------------------------
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IDispatchRequestRepository, DispatchRequestRepository>();
+builder.Services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
+builder.Services.AddScoped<IMissionPlannerAgent, MissionPlannerAgent>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IDispatchService, DispatchService>();
 
 // --------------------------------------------------
 // 3. Authentication & JWT Configuration

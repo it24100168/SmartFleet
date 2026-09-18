@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartFleet.Backend.Data;
@@ -11,9 +12,11 @@ using SmartFleet.Backend.Data;
 namespace SmartFleet.Backend.Data.Migrations
 {
     [DbContext(typeof(SmartFleetDbContext))]
-    partial class SmartFleetDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260918000000_AddDispatchRequestAndWorkflowRun")]
+    partial class AddDispatchRequestAndWorkflowRun
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

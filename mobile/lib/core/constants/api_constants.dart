@@ -9,4 +9,5 @@ class ApiConstants {
   static const String register = '/auth/register';
   static const String operatorTest = '/test/operator-only';
   static const String technicianTest = '/test/technician-only';
+  static const String dispatchRequests = '/dispatch-requests';
 }
