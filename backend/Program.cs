@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SmartFleet.Backend.Agents.SafetyGuardAgent;
 using SmartFleet.Backend.Data;
 using SmartFleet.Backend.Data.Repositories;
 using SmartFleet.Backend.Middleware;
@@ -56,6 +57,9 @@ builder.Services.AddDbContext<SmartFleetDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IDispatchSyncService, DispatchSyncService>();
+builder.Services.AddScoped<IApprovalService, ApprovalService>();
+builder.Services.AddScoped<ISafetyGuardAgent, SafetyGuardAgent>();
 
 // --------------------------------------------------
 // 3. Authentication & JWT Configuration
