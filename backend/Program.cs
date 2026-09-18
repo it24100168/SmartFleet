@@ -8,6 +8,7 @@ using SmartFleet.Backend.Data.Repositories;
 using SmartFleet.Backend.Middleware;
 using SmartFleet.Backend.Services;
 using SmartFleet.Backend.Services.Interfaces;
+using SmartFleet.Backend.Agents.DispatchTelemetryAgent;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,9 +54,13 @@ builder.Services.AddDbContext<SmartFleetDbContext>(options =>
 // --------------------------------------------------
 // 2. Application Services & Repositories
 // --------------------------------------------------
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IRoverRepository, RoverRepository>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHttpClient<IWeatherService, WeatherService>();
+builder.Services.AddScoped<IDispatchTelemetryAgent, DispatchTelemetryAgent>();
 
 // --------------------------------------------------
 // 3. Authentication & JWT Configuration

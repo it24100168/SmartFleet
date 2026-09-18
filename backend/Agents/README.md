@@ -7,8 +7,10 @@ This directory is reserved for the 4-agent autonomous pipeline that coordinates 
 ### 1. Mission Planner Agent
 - **Responsibility**: Analyzes incoming cargo dispatch requests, assesses priority levels, queries current rover availability and warehouse map topologies, and generates optimal multi-stop mission plans.
 
-### 2. Dispatch & Telemetry Agent
-- **Responsibility**: Coordinates the real-time execution of scheduled dispatch missions, streams simulated telemetry data (speed, heading, battery state, coordinates), and emits lifecycle state transitions.
+### 2. Dispatch & Telemetry Agent (Owner: Hamdhan) [IMPLEMENTED]
+- **Location**: `backend/Agents/DispatchTelemetryAgent/`
+- **Contract Reference**: `docs/agent-contracts.md` (Section 2)
+- **Responsibility**: Queries candidate rovers by zone and battery threshold against the `Rovers` database, checks environmental route weather risk via OpenWeather API, validates safe operating parameters, and transactionally locks the selected rover for mission execution. Handoffs directly to Safety Guard Agent (Dilukshi).
 
 ### 3. Maintenance Mechanic Agent
 - **Responsibility**: Ingests breakdown alerts and telemetry error codes, runs automated diagnostics on rover subsystems (drivetrain, sensors, battery cell health), and recommends corrective work orders to Maintenance Technicians.
