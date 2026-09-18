@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SmartFleet.Backend.Agents.MaintenanceMechanicAgent;
 using SmartFleet.Backend.Data;
 using SmartFleet.Backend.Data.Repositories;
 using SmartFleet.Backend.Middleware;
@@ -54,6 +55,9 @@ builder.Services.AddDbContext<SmartFleetDbContext>(options =>
 // 2. Application Services & Repositories
 // --------------------------------------------------
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IBreakdownReportRepository, BreakdownReportRepository>();
+builder.Services.AddScoped<IFailureCatalogRepository, FailureCatalogRepository>();
+builder.Services.AddScoped<IMaintenanceMechanicAgent, MaintenanceMechanicAgent>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
@@ -198,6 +202,7 @@ if (app.Environment.IsDevelopment() || true)
 }
 
 app.UseCors(CorsPolicyName);
+app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
