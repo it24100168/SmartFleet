@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartFleet.Backend.Data;
@@ -11,9 +12,11 @@ using SmartFleet.Backend.Data;
 namespace SmartFleet.Backend.Data.Migrations
 {
     [DbContext(typeof(SmartFleetDbContext))]
-    partial class SmartFleetDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260918000000_AddDispatchRequestAndWorkflowRun")]
+    partial class AddDispatchRequestAndWorkflowRun
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,123 +24,6 @@ namespace SmartFleet.Backend.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.Rover", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("BatteryPercentage")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CurrentMissionId")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Identifier")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("LocationZone")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<uint>("Version")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Identifier")
-                        .IsUnique();
-
-                    b.ToTable("Rovers", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            BatteryPercentage = 95,
-                            CreatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Identifier = "RO-01",
-                            LocationZone = "WarehouseA-DockA1",
-                            Status = "Idle",
-                            UpdatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Version = 0u
-                        },
-                        new
-                        {
-                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            BatteryPercentage = 35,
-                            CreatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Identifier = "RO-02",
-                            LocationZone = "WarehouseA-ChargingBay",
-                            Status = "Charging",
-                            UpdatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Version = 0u
-                        },
-                        new
-                        {
-                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
-                            BatteryPercentage = 60,
-                            CreatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            CurrentMissionId = "d1a0-554b",
-                            Identifier = "RO-03",
-                            LocationZone = "WarehouseA-Aisle4",
-                            Status = "Dispatched",
-                            UpdatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Version = 0u
-                        },
-                        new
-                        {
-                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
-                            BatteryPercentage = 88,
-                            CreatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Identifier = "RO-04",
-                            LocationZone = "WarehouseA-DockA1",
-                            Status = "Idle",
-                            UpdatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Version = 0u
-                        },
-                        new
-                        {
-                            Id = new Guid("55555555-5555-5555-5555-555555555555"),
-                            BatteryPercentage = 15,
-                            CreatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Identifier = "RO-05",
-                            LocationZone = "WarehouseA-MaintenanceArea",
-                            Status = "Faulted",
-                            UpdatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Version = 0u
-                        },
-                        new
-                        {
-                            Id = new Guid("66666666-6666-6666-6666-666666666666"),
-                            BatteryPercentage = 22,
-                            CreatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Identifier = "RO-06",
-                            LocationZone = "WarehouseA-DockB3",
-                            Status = "Idle",
-                            UpdatedAt = new DateTime(2026, 9, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Version = 0u
-                        });
-                });
 
             modelBuilder.Entity("SmartFleet.Backend.Models.User", b =>
                 {
