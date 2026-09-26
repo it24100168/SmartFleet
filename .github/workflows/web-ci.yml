@@ -19,3 +19,4 @@ jobs:
       - run: npm run build
         working-directory: web
       - run: node scripts/ui-time-check.mjs
+      - run: node scripts/fleet-layout-check.mjs

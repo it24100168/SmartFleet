@@ -5,6 +5,7 @@ import { breakdownApi } from '../api/breakdownApi';
 import { useAuth } from '../context/AuthContext';
 import './FleetSimulation.css';
 import { formatIST } from '../utils/time';
+import { layoutRovers } from '../utils/fleetLayout';
 
 const agents = [ ['MissionPlannerAgent','Mission Planner','Delegated checklist'], ['DispatchTelemetryAgent','Dispatch & Telemetry','Battery · weather · reservation'], ['MaintenanceMechanicAgent','Maintenance Mechanic','Catalog diagnosis · fleet exclusion'], ['SafetyGuardAgent','Safety Guard','Rules · risk · human approval'] ];
 const colors = ['#56d5bd','#7eb4ff','#eab66d','#c7a2ff','#fb8191','#a5ce73'];
@@ -40,6 +41,7 @@ export function FleetSimulation() {
   const active=fleet?.runs.filter(m=>m.status==='Executing')||[];
   const waiting=fleet?.runs.filter(m=>m.status==='AwaitingApproval')||[];
   const supervisor=user?.role==='Supervisor', technician=user?.role==='Technician';
+  const markers=layoutRovers(fleet?.rovers||[]);
 
   return <div className="fleet-lab">
     <header className="lab-heading"><div><div className="lab-eyebrow"><span className="live-dot"/> WAREHOUSE A / FLEET CONTROL</div><h1>Watch the fleet work.</h1><p>Follow every mission from a delegated plan to a completed delivery.</p></div><span className="mode-label">{fleet?.demo?'DEMO INPUTS · REAL WORKFLOW':'LIVE INPUTS · SIMULATED ROBOTS'}</span></header>
@@ -56,10 +58,13 @@ export function FleetSimulation() {
         <text x="500" y="55" textAnchor="middle" fill="#617789" fontSize="13" letterSpacing="4">SMARTFLEET / AUTONOMOUS TRANSPORT SIMULATION</text>
         {fleet?.zones.map(z=><g key={z.id}><rect x={z.x*10-62} y={z.y*6.4-30} width="124" height="60" rx="10" fill="#142935" stroke="#53747d" strokeDasharray="4 4"/><text x={z.x*10} y={z.y*6.4+50} textAnchor="middle" fill="#adc3d2" fontSize="14">{z.label}</text></g>)}
         {fleet?.runs.filter(m=>['Executing','AwaitingApproval'].includes(m.status)).map(m=>{const index=fleet.rovers.findIndex(r=>r.id===m.roverId);return <polyline key={m.id} points={route(m,fleet.zones).map(p=>`${p.x*10},${p.y*6.4}`).join(' ')} fill="none" stroke={colors[Math.max(index,0)%colors.length]} strokeOpacity={selected===m.id?.toString()?'.9':'.35'} strokeWidth="3" strokeDasharray={m.status==='AwaitingApproval'?'6 8':undefined}/>;})}
-        {fleet?.rovers.map((r,i)=>{const m=active.find(m=>m.roverId===r.id);const p=r.position;const offset=0;return <g key={r.id} transform={`translate(${p.x*10+offset} ${p.y*6.4})`} className="map-robot" role="button" tabIndex={0} aria-label={`${r.identifier}, ${r.status}, ${r.batteryPercentage}% battery`} onClick={()=>{setRoverId(r.id);if(m)setSelected(m.id);}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){setRoverId(r.id);if(m)setSelected(m.id);}}}>
+        {fleet?.rovers.map(r=>{const p=markers.get(r.id)!;return p.displaced&&<g key={`anchor-${r.id}`} pointerEvents="none"><line x1={p.anchorX} y1={p.anchorY} x2={p.x} y2={p.y} stroke="#7992a6" strokeOpacity=".5" strokeDasharray="3 5"/><circle cx={p.anchorX} cy={p.anchorY} r="3" fill="#7992a6"/></g>;})}
+        {fleet?.rovers.map((r,i)=>{const m=active.find(m=>m.roverId===r.id);const p=markers.get(r.id)!;return <g key={r.id} transform={`translate(${p.x} ${p.y})`} className="map-robot" role="button" tabIndex={0} aria-label={`${r.identifier}, ${r.status}, ${r.batteryPercentage}% battery`} onClick={()=>{setRoverId(r.id);if(m)setSelected(m.id);}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setRoverId(r.id);if(m)setSelected(m.id);}}}>
           <circle r="29" fill={colors[i%colors.length]} opacity={roverId===r.id?'.22':'.07'}/><rect x="-17" y="-15" width="34" height="30" rx="9" fill="#101c28" stroke={r.status==='Maintenance'||r.status==='Faulted'?'#fb8191':colors[i%colors.length]} strokeWidth="3"/><rect x="-10" y="-7" width="20" height="10" rx="3" fill={colors[i%colors.length]}/><circle cx="-7" cy="8" r="2" fill="#fff"/><circle cx="7" cy="8" r="2" fill="#fff"/><text y="-35" textAnchor="middle" fill="#e6f1f7" fontSize="15" fontWeight="600">{r.identifier}</text>{m&&<text y="42" textAnchor="middle" fill={colors[i%colors.length]} fontSize="13">{Math.round(m.progress*100)}%</text>}
         </g>;})}
       </svg><div className="map-caption"><span><i className="legend-dot"/> Real database state · updates every second</span><span>Illustrative routes; no physical navigation hardware</span></div>
+      <p className="marker-explanation">Nearby markers are spread out for visibility. Dotted lines point to their actual positions; they are not travel routes.</p>
+      <div className="fleet-roster" aria-label="All fleet rovers">{fleet?.rovers.map((r,i)=><button key={r.id} className={roverId===r.id?'selected':''} onClick={()=>{setRoverId(r.id);const m=active.find(m=>m.roverId===r.id);if(m)setSelected(m.id);}}><strong><span style={{color:colors[i%colors.length]}}>● </span>{r.identifier}</strong><span>{r.status} / {r.batteryPercentage}%</span><small>{fleet.zones.find(z=>z.id===r.locationZone)?.label || 'Stopped on route'}</small></button>)}</div>
       <div className="rover-inspector"><label>Inspect robot <select aria-label="Inspect robot" value={roverId||''} onChange={e=>setRoverId(e.target.value)}><option value="">Select a robot</option>{fleet?.rovers.map(r=><option key={r.id} value={r.id}>{r.identifier} / {r.status} / {r.batteryPercentage}%</option>)}</select></label></div>
       {rover&&<div className="rover-inspector"><div><strong>{rover.identifier}</strong><span>{rover.status} · {rover.batteryPercentage}% battery</span></div><div className="rover-actions">
         {fleet?.demo&&supervisor&&['Idle','Charging'].includes(rover.status)&&<button disabled={busy} onClick={()=>void act(()=>workflowsApi.charge(rover.id))}><BatteryCharging size={15}/> Demo charge</button>}
@@ -72,6 +77,7 @@ export function FleetSimulation() {
         <label>Pickup zone<select value={source} onChange={e=>setSource(e.target.value)}>{fleet?.zones.map(z=><option key={z.id} value={z.id}>{z.label}</option>)}</select></label>
         <label>Delivery zone<select value={destination} onChange={e=>setDestination(e.target.value)}>{fleet?.zones.map(z=><option key={z.id} value={z.id}>{z.label}</option>)}</select></label>
         <label>Cargo<select value={cargo} onChange={e=>setCargo(e.target.value)}><option>Standard</option><option>Fragile</option><option>Refrigerated</option></select></label>
+        <p className="composer-note">Cargo categories are recorded for this prototype. Special handling and refrigeration are not simulated yet.</p>
         <fieldset><legend>Demonstration scenario</legend>{[['low','Clear route','Automatic approval'],['medium','Weather caution','Supervisor approval required'],['high','Severe weather','Safe rejection; no movement']].map(([v,title,desc])=><label key={v} className={`scenario-choice ${scenario===v?'chosen':''}`}><input type="radio" name="scenario" value={v} checked={scenario===v} onChange={()=>setScenario(v)}/><span><strong>{title}</strong><small>{desc}</small></span></label>)}</fieldset>
         <button className="launch-mission" disabled={busy||!fleet?.demo||source===destination||technician}><Play size={17}/>{busy?'Processing…':'Dispatch mission'}<ArrowRight size={17}/></button>
         {!fleet?.demo&&<p className="composer-note">Create a dispatch in Dispatch Requests when using live providers.</p>}
