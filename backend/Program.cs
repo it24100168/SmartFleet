@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SmartFleet.Backend.Agents.MissionPlannerAgent;
+using SmartFleet.Backend.Agents.MaintenanceMechanicAgent;
 using SmartFleet.Backend.Data;
 using SmartFleet.Backend.Data.Repositories;
 using SmartFleet.Backend.Middleware;
@@ -57,20 +58,20 @@ builder.Services.AddDbContext<SmartFleetDbContext>(options =>
 // --------------------------------------------------
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-<<<<<<< HEAD
 builder.Services.AddScoped<IRoverRepository, RoverRepository>();
+builder.Services.AddScoped<IBreakdownReportRepository, BreakdownReportRepository>();
+builder.Services.AddScoped<IFailureCatalogRepository, FailureCatalogRepository>();
+builder.Services.AddScoped<IMaintenanceMechanicAgent, MaintenanceMechanicAgent>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddHttpClient<IWeatherService, WeatherService>();
 builder.Services.AddScoped<IDispatchTelemetryAgent, DispatchTelemetryAgent>();
-=======
 builder.Services.AddScoped<IDispatchRequestRepository, DispatchRequestRepository>();
 builder.Services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
 builder.Services.AddScoped<IMissionPlannerAgent, MissionPlannerAgent>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDispatchService, DispatchService>();
->>>>>>> origin/feature/dispatch-mission-planner
 
 // --------------------------------------------------
 // 3. Authentication & JWT Configuration
@@ -213,6 +214,7 @@ if (app.Environment.IsDevelopment() || true)
 }
 
 app.UseCors(CorsPolicyName);
+app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();

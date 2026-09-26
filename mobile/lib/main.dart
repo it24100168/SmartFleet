@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
 import 'routes/app_router.dart';
 import 'services/auth_service.dart';
+import 'services/breakdown_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,8 +30,11 @@ class _SmartFleetAppState extends State<SmartFleetApp> {
   Widget build(BuildContext context) {
     final router = createRouter(_authService);
 
-    return ChangeNotifierProvider<AuthService>.value(
-      value: _authService,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthService>.value(value: _authService),
+        ChangeNotifierProvider<BreakdownService>(create: (_) => BreakdownService()),
+      ],
       child: MaterialApp.router(
         title: 'SmartFleet',
         debugShowCheckedModeBanner: false,
