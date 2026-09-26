@@ -36,6 +36,8 @@ snapshot=await fleet();const moving=snapshot.runs.find(r=>r.id===revised.id);
 const form=new FormData();form.set('RoverId',moving.roverId);form.set('SymptomCategory','MotorOverheating');form.set('Description','Smoke test motor overheating');form.set('ErrorCode','E204');
 const report=await api('/breakdown-reports',tech,'POST',form,201);
 assert.equal((await details(revised.id)).run.status,'Failed');assert.equal((await fleet()).rovers.find(r=>r.id===moving.roverId).status,'Maintenance');
+await api(`/workflows/demo-rovers/${moving.roverId}/recover`,tech,'POST',{});
+assert.equal((await fleet()).rovers.find(r=>r.id===moving.roverId).locationZone,'WarehouseA-MaintenanceArea');
 await api(`/breakdown-reports/${report.id}/status`,tech,'PATCH',{status:'Repaired'});
 assert.equal((await fleet()).rovers.find(r=>r.id===moving.roverId).status,'Idle');console.log('PASS: breakdown diagnoses, stops delivery and repair restores availability');
 const rejected=await create('high');assert.equal(rejected.status,'Failed');

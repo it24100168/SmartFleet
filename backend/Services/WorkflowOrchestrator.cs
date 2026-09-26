@@ -28,6 +28,7 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
             ?? throw new KeyNotFoundException("Dispatch request not found.");
         if (role == "Operator" && objective.OperatorId != actorId) throw new UnauthorizedAccessException("This dispatch belongs to another operator.");
         if (role is not ("Operator" or "Supervisor")) throw new UnauthorizedAccessException("Only operators and supervisors can start missions.");
+        WarehouseLayout.ValidateRoute(objective.SourceZone, objective.DestinationZone);
         if (demoWeather != null && (!Demo || demoWeather is not ("low" or "medium" or "high")))
             throw new ArgumentException("Weather fixtures require demo mode and a low, medium or high value.");
         var assessment = Demo
@@ -38,19 +39,40 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         var request = await db.DispatchRequests.SingleAsync(x => x.Id == requestId, ct);
         var existing = await db.WorkflowRuns.Where(x => x.DispatchRequestId == requestId && x.Status != "Generated")
             .OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync(ct);
-        if (existing != null && existing.Status is not ("Failed" or "Rejected" or "RevisionRequested")) return existing;
+        if (existing != null && existing.Status is not ("Failed" or "Rejected" or "RevisionRequested" or "Queued")) return existing;
+        if (Demo && existing?.Status == "Queued" && demoWeather == null) assessment.WeatherRisk = existing.WeatherRisk;
         // Concurrency token claims this request; duplicates cannot commit a second reservation.
         request.Status = DispatchRequestStatus.Planned;
         request.UpdatedAt = DateTime.UtcNow;
         var input = new MissionPlannerInput { DispatchRequestId = request.Id.ToString(), SourceZone = request.SourceZone,
             DestinationZone = request.DestinationZone, CargoType = request.CargoType, Priority = request.Priority,
             PreferredTimeWindow = request.PreferredTimeWindow.ToString("O") };
-        var plan = await planner.GeneratePlanAsync(input, ct);
-        var run = new WorkflowRun { DispatchRequestId = requestId, ObjectiveJson = Serialize(input), PlanJson = Serialize(plan),
+        var plan = existing?.Status == "Queued"
+            ? JsonSerializer.Deserialize<MissionPlannerOutput>(existing.PlanJson, Json)!
+            : await planner.GeneratePlanAsync(input, ct);
+        var run = existing?.Status == "Queued" ? existing : new WorkflowRun { DispatchRequestId = requestId, ObjectiveJson = Serialize(input), PlanJson = Serialize(plan),
             Status = "Planning", IsDemo = Demo, WeatherRisk = assessment.WeatherRisk };
-        db.WorkflowRuns.Add(run);
+        if (run != existing) db.WorkflowRuns.Add(run);
         await db.SaveChangesAsync(ct);
-        Log(run, "MissionPlanning", "MissionPlannerAgent", input, plan, "Succeeded");
+        if (run != existing) Log(run, "MissionPlanning", "MissionPlannerAgent", input, plan, "Succeeded");
+
+        // Normal orders are scheduled for their delivery target, with a short intake window.
+        // Explicit demo scenarios run immediately, but still wait for a safe available rover.
+        var now = DateTime.UtcNow;
+        var pending = await db.DispatchRequests.AsNoTracking().Where(x => x.Status == DispatchRequestStatus.Pending && x.Id != requestId).ToListAsync(ct);
+        var earlier = pending.Any(x => x.PreferredTimeWindow <= now.AddSeconds(40) &&
+            (x.PreferredTimeWindow < request.PreferredTimeWindow || x.PreferredTimeWindow == request.PreferredTimeWindow && PriorityRank(x.Priority) > PriorityRank(request.Priority)));
+        var available = await db.Rovers.AnyAsync(r => r.Status == RoverStatus.Idle && r.CurrentMissionId == null
+            && r.BatteryPercentage >= Math.Max(40, WarehouseLayout.RequiredBattery(request.SourceZone, request.DestinationZone))
+            && !db.BreakdownReports.Any(b => b.RoverId == r.Id && b.Status != BreakdownStatus.Repaired), ct);
+        if (assessment.WeatherRisk is "low" or "medium" && ((!available) || (demoWeather == null &&
+            (request.PreferredTimeWindow > now.AddSeconds(40) || request.CreatedAt > now.AddSeconds(-5) || earlier))))
+        {
+            run.Status = "Queued"; request.Status = DispatchRequestStatus.Pending;
+            run.FailureReason = !available ? "Waiting for a safe, charged rover." : "Scheduled: departure approximately 40 seconds before the delivery target; equal targets use Critical > High > Medium > Low.";
+            await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); return run;
+        }
+        run.FailureReason = null; run.WeatherRisk = assessment.WeatherRisk;
 
         var telemetryInput = new DispatchTelemetryAgentInput { DispatchRequestId = requestId.ToString(), SourceZone = request.SourceZone,
             DestinationZone = request.DestinationZone, WeatherAssessment = assessment,
@@ -151,6 +173,7 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         var runs = await db.WorkflowRuns.Where(x => x.RoverId == roverId && (x.Status == "Executing" || x.Status == "AwaitingApproval")).ToListAsync(ct);
         foreach (var run in runs)
         {
+            if (run.Status == "Executing" && run.Progress > 0) rover.LocationZone = "StoppedOnRoute";
             run.Status = "Failed"; run.FailureReason = "Mission stopped: rover breakdown reported."; run.UpdatedAt = DateTime.UtcNow;
             var request = await db.DispatchRequests.SingleAsync(x => x.Id == run.DispatchRequestId, ct);
             request.Status = DispatchRequestStatus.Failed; request.UpdatedAt = DateTime.UtcNow;
@@ -204,6 +227,15 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         }
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    public static int PriorityRank(string priority) => priority switch { "Critical" => 4, "High" => 3, "Medium" => 2, _ => 1 };
+    public async Task SchedulePendingAsync(CancellationToken ct)
+    {
+        var pending = await db.DispatchRequests.AsNoTracking().Where(x => x.Status == DispatchRequestStatus.Pending
+            && x.PreferredTimeWindow <= DateTime.UtcNow.AddSeconds(40) && x.CreatedAt <= DateTime.UtcNow.AddSeconds(-5)).ToListAsync(ct);
+        foreach (var request in pending.OrderBy(x => x.PreferredTimeWindow).ThenByDescending(x => PriorityRank(x.Priority)).ThenBy(x => x.CreatedAt))
+            await StartAsync(request.Id, request.OperatorId, "Operator", null, ct);
     }
 
     private void BeginExecution(WorkflowRun run, DispatchRequest request, Rover rover)

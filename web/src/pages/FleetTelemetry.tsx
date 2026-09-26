@@ -1,3 +1,4 @@
+import { formatIST } from '../utils/time';
 import React, { useState, useEffect, useCallback } from 'react';
 import { roversApi, Rover, RoverQueryParameters } from '../api/roversApi';
 import { agentsApi, DispatchTelemetryAgentInput, DispatchTelemetryAgentOutput, WeatherAssessmentResult } from '../api/agentsApi';
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export const FleetTelemetry: React.FC = () => {
+  const [notice,setNotice]=useState('');
   // Rovers State
   const [rovers, setRovers] = useState<Rover[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -76,7 +78,7 @@ export const FleetTelemetry: React.FC = () => {
       };
       const result = await roversApi.getRovers(params);
       setRovers(result.items);
-      setTotalCount(result.totalCount);
+      setTotalCount(result.totalCount);setNotice(`Fleet data refreshed at ${formatIST(new Date().toISOString())}.`);
     } catch (err: any) {
       setRoverError(err.response?.data?.message || 'Failed to fetch rovers.');
     } finally {
@@ -108,6 +110,7 @@ export const FleetTelemetry: React.FC = () => {
   // Execute Dispatch & Telemetry Agent
   // Load locked mock input from docs/agent-contracts.md
   const handleLoadMockInput = async () => {
+    setNotice('Example input restored. This resets the form only; robot state and mission history are preserved.');
     try {
       const mock = await agentsApi.getMockInput();
       setAgentInput(mock);
@@ -183,12 +186,14 @@ export const FleetTelemetry: React.FC = () => {
             <CloudSun size={16} /> MEDIUM RISK (Light Rain/Drizzle)
           </span>
         );
-      default:
+      case 'low':
         return (
           <span style={{ color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <CloudSun size={16} /> LOW RISK (Safe Transit)
           </span>
         );
+      default:
+        return <span style={{color:'#ef4444',fontWeight:700}}>UNKNOWN (Dispatch blocked)</span>;
     }
   };
 
@@ -210,7 +215,7 @@ export const FleetTelemetry: React.FC = () => {
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Route Weather</div>
               <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                {weather ? `${weather.temperatureCelsius.toFixed(1)}°C • ${weather.conditionDescription}` : 'Assessing...'}
+                {weather ? weather.weatherRisk==='unknown' ? weather.conditionDescription : `${weather.temperatureCelsius.toFixed(1)}°C • ${weather.conditionDescription}` : 'Assessing...'}
               </div>
             </div>
           </div>
@@ -223,6 +228,7 @@ export const FleetTelemetry: React.FC = () => {
         </div>
       </div>
 
+      {notice&&<p role="status">{notice}</p>}
       {/* Dispatch & Telemetry Agent Interactive Test Bench */}
       <div className="glass-card" style={{ marginBottom: '2rem', border: '1px solid var(--border-glow)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -240,7 +246,7 @@ export const FleetTelemetry: React.FC = () => {
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn btn-secondary" onClick={handleLoadMockInput} style={{ fontSize: '0.85rem' }}>
-              <RotateCcw size={14} /> Reset to Team Contract Input
+              <RotateCcw size={14} /> Reset example form
             </button>
             <button
               className="btn btn-primary"

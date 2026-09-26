@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { workflowsApi, Zone } from '../api/workflowsApi';
+import { formatIST, istInput, istToUtc } from '../utils/time';
 import { dispatchApi } from '../api/dispatchApi';
 import {
   DispatchRequest,
@@ -47,6 +49,9 @@ export const DispatchRequests: React.FC = () => {
   const [generatingPlanId, setGeneratingPlanId] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
+  const [zones,setZones]=useState<Zone[]>([]);
+  useEffect(()=>{workflowsApi.zones().then(setZones).catch(()=>setError('Cannot load warehouse zones. Reload to retry.'));},[]);
+
   // Form State
   const [sourceZone, setSourceZone] = useState<string>('WarehouseA-DockA1');
   const [destinationZone, setDestinationZone] = useState<string>('WarehouseA-DockB3');
@@ -54,8 +59,8 @@ export const DispatchRequests: React.FC = () => {
   const [priority, setPriority] = useState<string>('High');
   const [timeWindow, setTimeWindow] = useState<string>(() => {
     const d = new Date();
-    d.setHours(d.getHours() + 2);
-    return d.toISOString().slice(0, 16);
+    d.setMinutes(d.getMinutes() + 2);
+    return istInput(d);
   });
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -76,8 +81,10 @@ export const DispatchRequests: React.FC = () => {
       setRequests(res.items);
       setTotalPages(res.totalPages);
       setTotalCount(res.totalCount);
+      return true;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load dispatch requests. Please retry.');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -98,7 +105,7 @@ export const DispatchRequests: React.FC = () => {
         destinationZone,
         cargoType,
         priority,
-        preferredTimeWindow: new Date(timeWindow).toISOString(),
+        preferredTimeWindow: istToUtc(timeWindow),
       };
 
       const newRequest = await dispatchApi.createDispatchRequest(payload);
@@ -195,7 +202,7 @@ export const DispatchRequests: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-secondary" onClick={fetchRequests} title="Refresh orders">
+          <button className="btn btn-secondary" disabled={loading} onClick={async()=>{if(await fetchRequests())setActionSuccess(`Orders refreshed at ${formatIST(new Date().toISOString())}.`);}} title="Reload orders without restarting missions">
             <RefreshCw size={16} />
             Refresh
           </button>
@@ -352,12 +359,12 @@ export const DispatchRequests: React.FC = () => {
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                         <Clock size={13} />
-                        {new Date(req.preferredTimeWindow).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatIST(req.preferredTimeWindow)}
                       </div>
                     </td>
                     <td>{getStatusBadge(req.status)}</td>
                     <td style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>
-                      {new Date(req.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      {formatIST(req.createdAt)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
@@ -451,26 +458,12 @@ export const DispatchRequests: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label">Source Zone (Pickup)</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input"
-                    value={sourceZone}
-                    onChange={(e) => setSourceZone(e.target.value)}
-                    placeholder="e.g. WarehouseA-DockA1"
-                  />
+                  <select required className="form-input" value={sourceZone} onChange={(e)=>setSourceZone(e.target.value)}><option value="" disabled>Select a map zone</option>{zones.map(z=><option key={z.id} value={z.id} disabled={z.id===destinationZone}>{z.label}</option>)}</select>
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">Destination Zone (Dropoff)</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input"
-                    value={destinationZone}
-                    onChange={(e) => setDestinationZone(e.target.value)}
-                    placeholder="e.g. WarehouseA-DockB3"
-                  />
+                  <select required className="form-input" value={destinationZone} onChange={(e)=>setDestinationZone(e.target.value)}><option value="" disabled>Select a map zone</option>{zones.map(z=><option key={z.id} value={z.id} disabled={z.id===sourceZone}>{z.label}</option>)}</select>
                 </div>
               </div>
 
@@ -506,7 +499,7 @@ export const DispatchRequests: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Preferred Time Window (UTC Target)</label>
+                <label className="form-label">Delivery target (IST / UTC+05:30)</label>
                 <input
                   type="datetime-local"
                   required
@@ -516,6 +509,7 @@ export const DispatchRequests: React.FC = () => {
                 />
               </div>
 
+              <p>Orders queue until approximately 40 seconds before the target. Equal targets use Critical, High, Medium, Low. Running missions are not interrupted.</p>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.75rem' }}>
                 <button
                   type="button"
@@ -525,7 +519,7 @@ export const DispatchRequests: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                <button type="submit" className="btn btn-primary" disabled={submitting || !zones.length || sourceZone===destinationZone}>
                   {submitting ? (
                     <>
                       <span className="spinner" style={{ width: '16px', height: '16px' }} />
@@ -574,7 +568,7 @@ export const DispatchRequests: React.FC = () => {
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted)' }}>createdAt: </span>
-                <span>{new Date(activePlan.createdAt).toLocaleString()}</span>
+                <span>{formatIST(activePlan.createdAt)}</span>
               </div>
             </div>
 

@@ -38,10 +38,12 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
         _logger.LogInformation("Dispatch & Telemetry Agent executing for DispatchRequestId: {RequestId}, Source: {Source}, Dest: {Dest}",
             input.DispatchRequestId, input.SourceZone, input.DestinationZone);
 
+        var requiredBattery = Math.Max(SafeBatteryThreshold, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery(input.SourceZone, input.DestinationZone));
+
         // 1. Query available rovers matching zone and battery threshold against real Rover table
         var candidatesInZone = await _roverRepository.GetAvailableRoversInZoneAsync(
             input.SourceZone,
-            minBattery: Math.Max(SafeBatteryThreshold, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery(input.SourceZone, input.DestinationZone)),
+            minBattery: requiredBattery,
             cancellationToken);
 
         Rover? selectedRover = candidatesInZone.FirstOrDefault();
@@ -75,10 +77,10 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
             }
 
             // Check if available rover has insufficient battery
-            if (fallbackCandidate.BatteryPercentage < Math.Max(SafeBatteryThreshold, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery(input.SourceZone, input.DestinationZone)))
+            if (fallbackCandidate.BatteryPercentage < requiredBattery)
             {
                 _logger.LogWarning("Dispatch rejected: Candidate rover {RoverId} battery ({Battery}%) below safe threshold {Threshold}%.",
-                    fallbackCandidate.Identifier, fallbackCandidate.BatteryPercentage, SafeBatteryThreshold);
+                    fallbackCandidate.Identifier, fallbackCandidate.BatteryPercentage, requiredBattery);
 
                 return new DispatchTelemetryAgentOutput
                 {
@@ -87,7 +89,7 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
                     BatteryOk = false,
                     WeatherRisk = "low",
                     Locked = false,
-                    Reason = $"Selected rover '{fallbackCandidate.Identifier}' battery ({fallbackCandidate.BatteryPercentage}%) is below safe operating threshold ({SafeBatteryThreshold}%)."
+                    Reason = $"Selected rover '{fallbackCandidate.Identifier}' battery ({fallbackCandidate.BatteryPercentage}%) is below safe operating threshold ({requiredBattery}%)."
                 };
             }
 

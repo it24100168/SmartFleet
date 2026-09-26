@@ -10,5 +10,6 @@ form.set('Photo',new Blob([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1
 const created=await fetch(base+'/breakdown-reports',{method:'POST',headers,body:form});assert.equal(created.status,201);const report=await created.json();
 assert.equal((await fetch('http://localhost:5078'+report.photoUrl)).status,200);
 assert.equal((await fetch('http://127.0.0.1:5173'+report.photoUrl)).status,200);
+assert.equal((await fetch(base+`/workflows/demo-rovers/${rover.id}/recover`,{method:'POST',headers})).status,200);
 assert.equal((await fetch(base+`/breakdown-reports/${report.id}/status`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({status:'Repaired'})})).status,200);
 console.log('PASS: photo upload, API serving, Vite proxy and repair');

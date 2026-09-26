@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+const base = process.env.SMARTFLEET_TEST_URL || 'http://localhost:5080/api';
+assert.equal((await (await fetch(base+'/health')).json()).demo,true);
+const auth=await (await fetch(base+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'supervisor@demo.smartfleet',password:process.env.SMARTFLEET_DEMO_PASSWORD||'DemoFleet!2026'})})).json();
+const headers={Authorization:`Bearer ${auth.token}`};
+async function api(path,method='GET',body,status=200){const r=await fetch(base+path,{method,headers:{...headers,...(body instanceof FormData?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:body instanceof FormData?body:JSON.stringify(body)});const data=await r.json();assert.equal(r.status,status,JSON.stringify(data));return data;}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const fleet=()=>api('/workflows/fleet');
+for(const r of (await fleet()).rovers.filter(r=>['Idle','Charging'].includes(r.status))) await api(`/workflows/demo-rovers/${r.id}/charge`,'POST',{});
+const input={sourceZone:'WarehouseA-DockA1',destinationZone:'WarehouseA-DockB3',cargoType:'Regression',priority:'Low',preferredTimeWindow:new Date(Date.now()+55000).toISOString()};
+await api('/dispatch-requests','POST',{...input,sourceZone:'invented-zone'},400);
+await api('/dispatch-requests','POST',{...input,destinationZone:input.sourceZone},400);
+const low=await api('/dispatch-requests','POST',input,201);
+const critical=await api('/dispatch-requests','POST',{...input,priority:'Critical'},201);
+assert.equal(low.status,'Pending');assert.equal(critical.status,'Pending');
+assert.equal(Date.parse(critical.preferredTimeWindow),Date.parse(input.preferredTimeWindow));
+await wait(3000);
+assert.equal((await api(`/dispatch-requests/${critical.id}`)).status,'Pending');
+let snapshot;
+for(let n=0;n<25;n++){snapshot=await fleet();if(snapshot.runs.some(r=>r.dispatchRequestId===low.id&&r.status==='Executing'))break;await wait(1000);}
+const lowRun=snapshot.runs.find(r=>r.dispatchRequestId===low.id), highRun=snapshot.runs.find(r=>r.dispatchRequestId===critical.id);
+assert.equal(lowRun.status,'Executing');assert.equal(highRun.status,'Executing');assert.notEqual(lowRun.roverId,highRun.roverId);
+const lowDetails=await api(`/workflows/${lowRun.id}`), highDetails=await api(`/workflows/${highRun.id}`);
+const started=d=>Date.parse(d.logs.find(l=>l.stepName==='DeliveryStarted').timestamp);
+assert.ok(started(highDetails)<=started(lowDetails),'Critical is allocated before Low at the same target');
+console.log('PASS: invalid zones rejected; future target queues; equal targets schedule Critical first');
+await wait(5000);
+const form=new FormData();form.set('RoverId',highRun.roverId);form.set('SymptomCategory','MotorOverheating');form.set('Description','Position and recovery regression');
+const report=await api('/breakdown-reports','POST',form,201);
+snapshot=await fleet();const stopped=snapshot.rovers.find(r=>r.id===highRun.roverId);const failed=snapshot.runs.find(r=>r.id===highRun.id);
+assert.equal(failed.status,'Failed');assert.ok(failed.progress>0);assert.equal(stopped.locationZone,'StoppedOnRoute');
+await wait(2200);const again=(await fleet()).rovers.find(r=>r.id===highRun.roverId);assert.deepEqual(again.position,stopped.position);
+await api(`/breakdown-reports/${report.id}/status`,'PATCH',{status:'Repaired'},409);
+await api(`/workflows/demo-rovers/${highRun.roverId}/recover`,'POST',{});
+const recovered=(await fleet()).rovers.find(r=>r.id===highRun.roverId);assert.deepEqual(recovered.position,{x:85,y:82});assert.equal(recovered.status,'Maintenance');
+await api(`/breakdown-reports/${report.id}/status`,'PATCH',{status:'Repaired'});
+console.log('PASS: fault preserves stop position across refresh; recovery moves to maintenance before repair');

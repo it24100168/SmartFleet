@@ -1,3 +1,4 @@
+import { formatIST } from '../utils/time';
 import { roversApi, Rover } from '../api/roversApi';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -525,7 +526,7 @@ export const MaintenanceQueue: React.FC = () => {
                       <td style={{ padding: '1rem 1.25rem' }}>
                         <div style={{ color: 'var(--text-main)', fontWeight: 500 }}>{report.reportedByName}</div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-faint)' }}>
-                          {new Date(report.createdAt).toLocaleDateString()} {new Date(report.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatIST(report.createdAt)}
                         </div>
                       </td>
 

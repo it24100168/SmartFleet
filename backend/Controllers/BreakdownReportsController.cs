@@ -221,8 +221,10 @@ public class BreakdownReportsController : ControllerBase
             if (request.Status != BreakdownStatus.Repaired) await _workflow.BlockRoverAsync(report.RoverId.Value, cancellationToken);
             else if (!await _db.BreakdownReports.AnyAsync(x => x.Id != report.Id && x.RoverId == report.RoverId && x.Status != BreakdownStatus.Repaired, cancellationToken))
             {
-                var rover = await _db.Rovers.SingleAsync(x => x.Id == report.RoverId, cancellationToken);
-                if (rover.CurrentMissionId == null) rover.Status = rover.BatteryPercentage < 40 ? RoverStatus.Charging : RoverStatus.Idle;
+                  var rover = await _db.Rovers.SingleAsync(x => x.Id == report.RoverId, cancellationToken);
+                  if (_workflow.Demo && rover.LocationZone != "WarehouseA-MaintenanceArea")
+                      return Conflict(new { message = "Recover the robot to the maintenance area in Fleet Simulation before marking it repaired." });
+                  if (rover.CurrentMissionId == null) rover.Status = rover.BatteryPercentage < 40 ? RoverStatus.Charging : RoverStatus.Idle;
             }
         }
         report.UpdatedAt = DateTime.UtcNow;

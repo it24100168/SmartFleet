@@ -1,3 +1,4 @@
+import { formatIST } from '../utils/time';
 import { workflowsApi } from '../api/workflowsApi';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -799,7 +800,7 @@ export const ApprovalCenter: React.FC = () => {
                         )}
                       </td>
                       <td style={{ padding: '1rem 1.25rem', fontSize: '0.825rem', color: 'var(--text-faint)' }}>
-                        {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                        {formatIST(req.createdAt)}
                       </td>
                       <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
                         <button
@@ -1308,7 +1309,7 @@ export const ApprovalCenter: React.FC = () => {
                           {getStatusBadge(selectedRequest.status)}
                           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                             by <strong>{selectedRequest.reviewedByName || 'Supervisor'}</strong> on{' '}
-                            {new Date(selectedRequest.updatedAt).toLocaleString()}
+                            {formatIST(selectedRequest.updatedAt)}
                           </span>
                         </div>
                         {selectedRequest.reviewNotes ? (
@@ -1407,7 +1408,7 @@ export const ApprovalCenter: React.FC = () => {
                                   </span>
                                 </div>
                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-faint)' }}>
-                                  {new Date(log.timestamp).toLocaleTimeString()}
+                                  {formatIST(log.timestamp)}
                                 </span>
                               </div>
 

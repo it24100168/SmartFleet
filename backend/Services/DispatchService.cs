@@ -42,9 +42,11 @@ public class DispatchService : IDispatchService
         Guid operatorId,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(dto.SourceZone) || string.IsNullOrWhiteSpace(dto.DestinationZone)
-            || dto.SourceZone.Trim().Equals(dto.DestinationZone.Trim(), StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("Pickup and delivery must be different, nonempty zones.");
+        WarehouseLayout.ValidateRoute(dto.SourceZone.Trim(), dto.DestinationZone.Trim());
+        if (dto.Priority is not ("Low" or "Medium" or "High" or "Critical"))
+            throw new ArgumentException("Choose Low, Medium, High or Critical priority.");
+        if (dto.PreferredTimeWindow == default)
+            throw new ArgumentException("Choose a delivery target time.");
         var user = await _userRepository.GetByIdAsync(operatorId, cancellationToken)
             ?? throw new UnauthorizedAccessException("Your operator account was not found or your session is stale. Please log in again.");
 

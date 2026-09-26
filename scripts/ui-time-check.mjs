@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from '../web/node_modules/typescript/lib/typescript.js';
+const source=fs.readFileSync(new URL('../web/src/utils/time.ts',import.meta.url),'utf8');
+const {outputText}=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}});
+const {formatIST,istInput,istToUtc}=await import('data:text/javascript;base64,'+Buffer.from(outputText).toString('base64'));
+assert.equal(istInput(new Date('2026-09-26T23:45:00Z')),'2026-09-27T05:15');
+assert.equal(istToUtc('2026-09-27T05:15'),'2026-09-26T23:45:00.000Z');
+assert.equal(formatIST('2026-09-26T23:45:00'),formatIST('2026-09-26T23:45:00Z'));
+assert.match(formatIST('2026-09-26T23:45:00Z'),/27 Sept 2026.*05:15:00 am IST/);
+console.log('PASS: IST input/output, UTC round-trip and midnight rollover');

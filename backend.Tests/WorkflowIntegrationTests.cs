@@ -18,6 +18,57 @@ namespace SmartFleet.Backend.Tests;
 
 public class WorkflowIntegrationTests
 {
+    [Fact]
+    public void RouteStartsAtPickupWithoutAnExtraPickupLoop()
+    {
+        var points = WarehouseLayout.Route("WarehouseA-DockA1", "WarehouseA-DockA1", "WarehouseA-DockB3");
+        Assert.Equal(new WarehouseLayout.Point(15,28), points[0]);
+        Assert.Single(points.Where(p => p == points[0]));
+        Assert.Equal(new WarehouseLayout.Point(85,28), WarehouseLayout.Position(points, 1));
+        var previousX = 15d;
+        for (var i=0; i<=100; i++) { var p=WarehouseLayout.Position(points,i/100d); Assert.True(p.X>=previousX); previousX=p.X; }
+    }
+
+    [Theory]
+    [InlineData("anything", "WarehouseA-DockB3")]
+    [InlineData("WarehouseA-DockA1", "anything")]
+    [InlineData("WarehouseA-DockA1", "WarehouseA-DockA1")]
+    public void UnknownOrIdenticalZonesAreRejected(string source, string destination)
+        => Assert.Throws<ArgumentException>(()=>WarehouseLayout.ValidateRoute(source,destination));
+
+    [Fact]
+    public async Task SameTargetCriticalStartsBeforeLowAndLowWaitsThenResumes()
+    {
+        await using var f=new Fixture(); await f.Initialize();
+        var rovers=await f.Db.Rovers.OrderBy(r=>r.Identifier).ToListAsync();
+        foreach(var rover in rovers) { rover.Status=RoverStatus.Charging; rover.CurrentMissionId=null; }
+        rovers[0].Status=RoverStatus.Idle; rovers[0].BatteryPercentage=100;
+        var low=await f.Request(); var critical=await f.Request();
+        low.Priority="Low"; critical.Priority="Critical";
+        low.PreferredTimeWindow=critical.PreferredTimeWindow=DateTime.UtcNow.AddSeconds(20);
+        low.CreatedAt=critical.CreatedAt=DateTime.UtcNow.AddSeconds(-10);
+        await f.Db.SaveChangesAsync(); f.Db.ChangeTracker.Clear();
+        await f.Workflow.SchedulePendingAsync(default);
+        var first=await f.Db.WorkflowRuns.SingleAsync(r=>r.DispatchRequestId==critical.Id);
+        var queued=await f.Db.WorkflowRuns.SingleAsync(r=>r.DispatchRequestId==low.Id);
+        Assert.Equal("Executing",first.Status); Assert.Equal("Queued",queued.Status);
+        first.Progress=.99; first.UpdatedAt=DateTime.UtcNow.AddSeconds(-2); await f.Db.SaveChangesAsync();
+        await f.Workflow.TickAsync(default); f.Db.ChangeTracker.Clear();
+        await f.Workflow.SchedulePendingAsync(default);
+        Assert.Equal("Executing",(await f.Db.WorkflowRuns.SingleAsync(r=>r.Id==queued.Id)).Status);
+        Assert.Equal(2,await f.Db.WorkflowRuns.CountAsync());
+    }
+
+    [Fact]
+    public async Task FutureTargetWaitsWithoutReservingRover()
+    {
+        await using var f=new Fixture(); await f.Initialize(); var request=await f.Request();
+        request.PreferredTimeWindow=DateTime.UtcNow.AddHours(1); await f.Db.SaveChangesAsync();
+        var run=await f.Workflow.StartAsync(request.Id,f.Supervisor.Id,"Supervisor",null,default);
+        Assert.Equal("Queued",run.Status); Assert.Null(run.RoverId);
+        await f.Workflow.SchedulePendingAsync(default);
+        Assert.Equal("Queued",run.Status);
+    }
     private sealed class Weather : IWeatherService
     {
         public Task<WeatherAssessmentResult> GetWeatherRiskAsync(string sourceZone, string destinationZone, CancellationToken cancellationToken = default)

@@ -28,6 +28,8 @@ public class RoverRepository : IRoverRepository
         if (status.HasValue)
         {
             query = query.Where(r => r.Status == status.Value);
+            if (status == RoverStatus.Idle)
+                query = query.Where(r => r.CurrentMissionId == null && !_context.BreakdownReports.Any(b => b.RoverId == r.Id && b.Status != BreakdownStatus.Repaired));
         }
 
         if (!string.IsNullOrWhiteSpace(zone))

@@ -25,7 +25,7 @@ The API runs at http://localhost:5078. Vite proxies `/api` and `/uploads` to it.
 2. Select **Clear route** and dispatch. Watch a robot reserve, pass Safety Guard and move. A delivery takes about 40 seconds while the API is running. The final state updates destination, battery and availability.
 3. Select the mission activity card. Click each agent card to see actual stored inputs/outputs and the execution timeline. Maintenance is explicitly skipped when there are no faults.
 4. Choose **Weather caution**. The robot stays Reserved until a Supervisor approves. Add notes and approve, reject or request revision. Revision releases the rover and can be replanned with the selected scenario. Approval reservations expire after ten minutes.
-5. Select a moving robot and report a motor fault. It stops and enters Maintenance. The real catalog agent diagnoses the report. A Technician or Supervisor can mark it repaired. The interrupted mission stays Failed; start a new plan explicitly.
+5. Select a moving robot and report a motor fault. It stops and enters Maintenance. The real catalog agent diagnoses the report. A Technician or Supervisor uses **Recover to maintenance (demo)** to simulate a recovery crew, then marks it repaired. A damaged motor does not drive itself. The interrupted mission stays Failed; start a new plan explicitly.
 6. Select **Severe weather** to demonstrate safe rejection. No robot should start moving.
 7. Use the Maintenance Queue or Flutter app to attach a real photo. Use the Technician account for repair actions. Demo charging is available only to supervisors for idle/charging robots.
 
@@ -69,3 +69,24 @@ dotnet ef migrations script --project backend/backend.csproj --output migration-
 ```
 
 The design-time factory intentionally uses a nonproduction placeholder connection for schema generation. For an actual migration, supply `--connection` securely or opt into startup migration with `Database__ApplyMigrations=true` and the configured connection. Never commit connection strings or generated SQL containing credentials. Provide persistent storage for `backend/wwwroot/uploads` when deploying.
+
+## Follow-up fixes: routes, recovery, scheduling and time
+
+- A robot already at pickup no longer leaves and returns to the same pickup before delivery. Fleet positions now come from a consistent backend snapshot. Motor faults retain the last persisted route position until explicit simulated recovery to the maintenance area. Recovery is an immediate demonstration transfer, not autonomous driving or towing physics.
+- Normal Dispatch Requests queue until approximately 40 seconds before the delivery target. A five-second intake window groups near-simultaneous submissions. Due requests sort by earliest target, then Critical > High > Medium > Low, then submission time. Running missions are never preempted. With two eligible robots, both orders can proceed; priority determines allocation order, not exclusive use of the fleet. Missing eligible capacity queues work and retries instead of failing. Targets are best-effort; approval delays, maintenance and capacity can make delivery late. The Fleet Simulation scenario button remains an immediate demonstration action.
+- Map zones are supplied by GET /api/workflows/zones. Both backend dispatch creation and workflow start reject unknown or identical zones. Historic invalid orders remain in history and cannot be restarted.
+- Web times are explicitly IST (UTC+05:30), independent of the browser time zone. API storage remains UTC. Input defaults and conversion use IST, including midnight rollover. Earlier timestamps entered through the buggy UTC-labelled form cannot be reconstructed automatically.
+- Refresh reloads current state and reports completion; it does not recharge robots, restart missions or erase history. Reset example form restores only the legacy telemetry example fields and explains this on screen. There is no destructive fleet reset button.
+- Select a robot using the map or Inspect robot dropdown. Use Demo charge for idle/charging robots. Faulted robots require recovery and repair before reuse. A route can require more than the general 40% floor (A1 to B3 requires 44%); the rejection message now shows the actual threshold.
+
+Validation: 32 backend tests, web production build, IST conversion checks, and live HTTP workflow/recovery/scheduling regressions. Browser interaction checks confirmed dropdowns, IST display, and refresh/reset feedback; screenshot capture timed out. PostgreSQL and native Flutter validation remain outstanding.
+
+Run additional regression checks against a separate, explicitly enabled demo API so test orders do not mix with a presentation:
+
+```powershell
+# Configure a separate Simulation__ConnectionString and API port 5080 first.
+$env:SMARTFLEET_TEST_URL='http://localhost:5080/api'
+node scripts/http-smoke.mjs
+node scripts/workflow-regression.mjs
+node scripts/ui-time-check.mjs
+```
