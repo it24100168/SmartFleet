@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+const base='http://localhost:5078/api';
+assert.equal((await (await fetch(base+'/health')).json()).demo,true);
+const auth=await (await fetch(base+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'technician@demo.smartfleet',password:process.env.SMARTFLEET_DEMO_PASSWORD||'DemoFleet!2026'})})).json();
+const headers={Authorization:`Bearer ${auth.token}`};
+const fleet=await(await fetch(base+'/workflows/fleet',{headers})).json();
+const rover=fleet.rovers.find(r=>r.status==='Idle');assert.ok(rover);
+const form=new FormData();form.set('RoverId',rover.id);form.set('SymptomCategory','SensorFault');form.set('Description','Upload regression check');
+form.set('Photo',new Blob([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1ioAAAAASUVORK5CYII=','base64')],{type:'image/png'}),'evidence.png');
+const created=await fetch(base+'/breakdown-reports',{method:'POST',headers,body:form});assert.equal(created.status,201);const report=await created.json();
+assert.equal((await fetch('http://localhost:5078'+report.photoUrl)).status,200);
+assert.equal((await fetch('http://127.0.0.1:5173'+report.photoUrl)).status,200);
+assert.equal((await fetch(base+`/breakdown-reports/${report.id}/status`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({status:'Repaired'})})).status,200);
+console.log('PASS: photo upload, API serving, Vite proxy and repair');

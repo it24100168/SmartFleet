@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
+<dict>    <key>NSLocationWhenInUseUsageDescription</key><string>Capture the pickup location for a cargo dispatch.</string>
+    <key>NSCameraUsageDescription</key><string>Photograph rover breakdowns for the maintenance team.</string>
+    <key>NSPhotoLibraryUsageDescription</key><string>Attach a breakdown photograph to your report.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

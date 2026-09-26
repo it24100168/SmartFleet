@@ -29,10 +29,12 @@ public class CreateDispatchRequestDto
     /// <summary>
     /// Optional GPS latitude captured from mobile geolocator.
     /// </summary>
+    [Range(-90, 90)]
     public double? Latitude { get; set; }
 
     /// <summary>
     /// Optional GPS longitude captured from mobile geolocator.
     /// </summary>
+    [Range(-180, 180)]
     public double? Longitude { get; set; }
 }

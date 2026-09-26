@@ -7,6 +7,7 @@ namespace SmartFleet.Backend.Agents.SafetyGuardAgent.DTOs;
 /// </summary>
 public class SafetyGuardInput
 {
+    public Guid? WorkflowRunId { get; set; }
     [JsonPropertyName("dispatchRequestId")]
     public string DispatchRequestId { get; set; } = string.Empty;
 

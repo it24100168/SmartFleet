@@ -68,7 +68,7 @@ public class RoversController : ControllerBase
     /// Manually updates status, battery percentage, or zone for simulation and testing purposes.
     /// </summary>
     [HttpPatch("{id:guid}")]
-    [Authorize(Roles = "Technician,Supervisor,Operator")]
+    [Authorize(Roles = "Supervisor")]
     [ProducesResponseType(typeof(RoverDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -77,42 +77,9 @@ public class RoversController : ControllerBase
         [FromBody] UpdateRoverSimulationDto dto,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
-        var rover = await _roverRepository.GetByIdAsync(id, cancellationToken);
-        if (rover == null)
-        {
-            return NotFound(new { message = $"Rover with ID '{id}' was not found." });
-        }
-
-        if (dto.Status.HasValue)
-        {
-            rover.Status = dto.Status.Value;
-            if (dto.Status.Value == Models.Enums.RoverStatus.Idle)
-            {
-                rover.CurrentMissionId = null;
-            }
-        }
-
-        if (dto.BatteryPercentage.HasValue)
-        {
-            rover.BatteryPercentage = dto.BatteryPercentage.Value;
-        }
-
-        if (!string.IsNullOrWhiteSpace(dto.LocationZone))
-        {
-            rover.LocationZone = dto.LocationZone.Trim();
-        }
-
-        await _roverRepository.UpdateAsync(rover, cancellationToken);
-        _logger.LogInformation("Rover {RoverId} ({Identifier}) simulation state updated by {User}.", rover.Id, rover.Identifier, User.Identity?.Name);
-
-        return Ok(MapToDto(rover));
+        await Task.CompletedTask;
+        return Conflict(new { message = "Use Fleet Simulation controls or maintenance repair actions; raw state overrides are disabled." });
     }
-
     /// <summary>
     /// Transactionally locks a rover for a mission, preventing double-booking using isolated DB transactions.
     /// </summary>
@@ -131,39 +98,9 @@ public class RoversController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        try
-        {
-            var lockedRover = await _roverRepository.LockRoverForMissionAsync(id, request.MissionId, cancellationToken);
-            if (lockedRover == null)
-            {
-                return NotFound(new LockRoverResponseDto
-                {
-                    Success = false,
-                    Message = $"Rover with ID '{id}' was not found."
-                });
-            }
-
-            _logger.LogInformation("Rover {RoverId} ({Identifier}) locked successfully for mission {MissionId}.",
-                lockedRover.Id, lockedRover.Identifier, request.MissionId);
-
-            return Ok(new LockRoverResponseDto
-            {
-                Success = true,
-                Message = $"Rover '{lockedRover.Identifier}' successfully locked for mission '{request.MissionId}'.",
-                Rover = MapToDto(lockedRover)
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Failed to lock rover {RoverId} for mission {MissionId}: {Message}", id, request.MissionId, ex.Message);
-            return BadRequest(new LockRoverResponseDto
-            {
-                Success = false,
-                Message = ex.Message
-            });
-        }
+        await Task.CompletedTask;
+        return Conflict(new { message = "Rovers are reserved by the workflow orchestrator only." });
     }
-
     private static RoverDto MapToDto(Rover rover) => new()
     {
         Id = rover.Id,

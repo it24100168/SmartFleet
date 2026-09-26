@@ -12,5 +12,6 @@ public enum DispatchRequestStatus
     Rejected,
     InTransit,
     Completed,
-    Failed
+    Failed,
+    RevisionRequested
 }

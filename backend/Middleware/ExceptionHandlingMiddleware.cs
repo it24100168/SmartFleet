@@ -39,6 +39,9 @@ public class ExceptionHandlingMiddleware
 
         var (statusCode, message) = exception switch
         {
+            Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (HttpStatusCode.Conflict, "Another action changed this mission. Refresh and retry."),
+            Microsoft.Data.Sqlite.SqliteException sqlite when sqlite.SqliteErrorCode is 5 or 6 => (HttpStatusCode.Conflict, "Fleet state is busy. Refresh and retry."),
+            Npgsql.PostgresException pg when pg.SqlState is "40001" or "23505" => (HttpStatusCode.Conflict, "A concurrent action already changed this record. Refresh and retry."),
             UnauthorizedAccessException unauthorizedEx => (HttpStatusCode.Unauthorized, unauthorizedEx.Message),
             InvalidOperationException invalidOpEx => (HttpStatusCode.BadRequest, invalidOpEx.Message),
             ArgumentException argEx => (HttpStatusCode.BadRequest, argEx.Message),

@@ -1,4 +1,4 @@
-cd back# SmartFleet — Agent Contracts
+# SmartFleet — Agent Contracts
 
 This file defines the exact input and output shape for each of the four
 agents in the pipeline. Field names, types, and structure here are locked
@@ -110,3 +110,16 @@ OUTPUT:
 - When two agents are wired together during integration week, the real
   output of the upstream agent must match the INPUT shape defined here for
   the downstream agent exactly, or the handoff will fail validation.
+
+## Integrated workflow revision (26 September 2026)
+
+Original examples above describe independent components. WorkflowOrchestrator now assembles typed handoffs:
+
+- Planner steps include assignedAgent; plan maps to telemetry planSteps and Safety Guard missionPlanSummary.
+- Dispatch IDs and database rover IDs are UUIDs. Legacy telemetry selectedRoverId remains the display identifier; the orchestrator resolves it to the UUID before persisting the workflow and invoking Safety Guard.
+- WorkflowRunId correlates logs and approvals. One approval per run; revision creates a new run. Repeated start on an active/completed run returns the same run.
+- Rover lifecycle: Idle -> Reserved -> Dispatched -> Idle/Charging. Breakdown changes it to Maintenance and stops its mission. Repair releases only after all reports are repaired.
+- Workflow: Planning -> AwaitingApproval/Executing/Failed. Approval resumes; reject/revise releases; completion persists destination and battery. Approval reservations expire after ten minutes.
+- Safety hard-rejects missing plans, failed battery, missing locks and weather outside low/medium. Unknown weather never becomes clear weather.
+- Demo mode injects labelled weather fixtures through a server-only property that public JSON cannot supply. Live mode uses OpenWeather. Both modes simulate hardware.
+- Start through /api/workflows/dispatch/{id}/start; read /api/workflows/{id}. Dispatch creation automatically starts execution. Old direct mutation shortcuts are disabled. Each agent's input/output is available in the actual execution logs.

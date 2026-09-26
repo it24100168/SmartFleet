@@ -3,7 +3,7 @@ import axiosClient from './axiosClient';
 export interface Rover {
   id: string;
   identifier: string;
-  status: 'Idle' | 'Dispatched' | 'Charging' | 'Maintenance' | 'Faulted';
+  status: 'Idle' | 'Reserved' | 'Dispatched' | 'Charging' | 'Maintenance' | 'Faulted';
   batteryPercentage: number;
   locationZone: string;
   currentMissionId: string | null;

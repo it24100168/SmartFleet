@@ -11,7 +11,7 @@ import {
 
 export const Sidebar: React.FC = () => {
   const navItems = [
-    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/', label: 'Fleet Simulation', icon: LayoutDashboard },
     { path: '/dispatch', label: 'Dispatch Requests', icon: Send },
     { path: '/telemetry', label: 'Fleet Telemetry', icon: Activity },
     { path: '/maintenance', label: 'Maintenance Queue', icon: Wrench },
@@ -50,8 +50,8 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       <div style={{ padding: '1rem', borderTop: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--text-faint)' }}>
-        <div>System: Simulated Ro-1 to Ro-10</div>
-        <div>Pipeline: 4 Agents Active</div>
+        <div>Warehouse A � Simulated robots</div>
+        <div>4 agents � Auditable workflow</div>
       </div>
     </aside>
   );

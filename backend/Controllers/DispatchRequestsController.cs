@@ -1,3 +1,5 @@
+using System.Text.Json;
+using SmartFleet.Backend.Services;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,13 +15,16 @@ namespace SmartFleet.Backend.Controllers;
 [Authorize]
 public class DispatchRequestsController : ControllerBase
 {
+    private readonly WorkflowOrchestrator _workflow;
     private readonly IDispatchService _dispatchService;
     private readonly ILogger<DispatchRequestsController> _logger;
 
     public DispatchRequestsController(
+        WorkflowOrchestrator workflow,
         IDispatchService dispatchService,
         ILogger<DispatchRequestsController> logger)
     {
+        _workflow = workflow;
         _dispatchService = dispatchService;
         _logger = logger;
     }
@@ -41,6 +46,8 @@ public class DispatchRequestsController : ControllerBase
 
         var userId = GetCurrentUserId();
         var result = await _dispatchService.CreateDispatchRequestAsync(dto, userId, cancellationToken);
+        await _workflow.StartAsync(result.Id, userId, GetCurrentUserRole(), null, cancellationToken);
+        result = await _dispatchService.GetDispatchRequestByIdAsync(result.Id, userId, GetCurrentUserRole(), cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -86,17 +93,9 @@ public class DispatchRequestsController : ControllerBase
         [FromBody] UpdateDispatchRequestStatusDto dto,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
-        var userId = GetCurrentUserId();
-        var role = GetCurrentUserRole();
-        var result = await _dispatchService.UpdateStatusAsync(id, dto.Status, userId, role, cancellationToken);
-        return Ok(result);
+        await Task.CompletedTask;
+        return Conflict(new { message = "Dispatch status is managed by the workflow. Use start, approval or maintenance actions." });
     }
-
     /// <summary>
     /// Triggers the Mission Planner Agent to generate a multi-step mission checklist and persist workflow state.
     /// </summary>
@@ -108,7 +107,8 @@ public class DispatchRequestsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var role = GetCurrentUserRole();
-        var result = await _dispatchService.GeneratePlanAsync(id, userId, role, cancellationToken);
+        var run = await _workflow.StartAsync(id, userId, role, null, cancellationToken);
+        var result = JsonSerializer.Deserialize<MissionPlannerOutput>(run.PlanJson, WorkflowOrchestrator.Json);
         return Ok(result);
     }
 

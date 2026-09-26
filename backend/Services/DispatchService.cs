@@ -42,6 +42,9 @@ public class DispatchService : IDispatchService
         Guid operatorId,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(dto.SourceZone) || string.IsNullOrWhiteSpace(dto.DestinationZone)
+            || dto.SourceZone.Trim().Equals(dto.DestinationZone.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Pickup and delivery must be different, nonempty zones.");
         var user = await _userRepository.GetByIdAsync(operatorId, cancellationToken)
             ?? throw new UnauthorizedAccessException("Your operator account was not found or your session is stale. Please log in again.");
 
@@ -119,23 +122,9 @@ public class DispatchService : IDispatchService
         string currentUserRole,
         CancellationToken cancellationToken = default)
     {
-        var request = await _dispatchRepository.GetByIdAsync(id, cancellationToken)
-            ?? throw new KeyNotFoundException($"DispatchRequest with ID {id} was not found.");
-
-        if (currentUserRole.Equals(Role.Operator.ToString(), StringComparison.OrdinalIgnoreCase) && request.OperatorId != currentUserId)
-        {
-            throw new UnauthorizedAccessException("You are not authorized to modify this dispatch request.");
-        }
-
-        request.Status = status;
-        request.UpdatedAt = DateTime.UtcNow;
-
-        await _dispatchRepository.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Updated status for DispatchRequest {Id} to {Status}", id, status);
-
-        return MapToDto(request);
+        await Task.CompletedTask;
+        throw new InvalidOperationException("Dispatch status is managed by WorkflowOrchestrator.");
     }
-
     public async Task<MissionPlannerOutput> GeneratePlanAsync(
         Guid id,
         Guid currentUserId,

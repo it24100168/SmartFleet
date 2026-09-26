@@ -40,7 +40,7 @@ public class AuthService : IAuthService
             Name = request.Name.Trim(),
             Email = emailNormalized,
             PasswordHash = passwordHash,
-            Role = request.Role,
+            Role = Models.Enums.Role.Operator,
             CreatedAt = now,
             UpdatedAt = now
         };

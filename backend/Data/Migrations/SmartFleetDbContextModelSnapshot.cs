@@ -22,6 +22,318 @@ namespace SmartFleet.Backend.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("SmartFleet.Backend.Models.ApprovalRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AgentSummaryJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DispatchRequestId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid?>("ReviewedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RiskReason")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasAnnotation("Relational:JsonPropertyName", "riskReason");
+
+                    b.Property<int>("RiskScore")
+                        .HasColumnType("integer")
+                        .HasAnnotation("Relational:JsonPropertyName", "riskScore");
+
+                    b.Property<string>("RoverId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("WorkflowRunId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("DispatchRequestId");
+
+                    b.HasIndex("ReviewedById");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("WorkflowRunId")
+                        .IsUnique();
+
+                    b.ToTable("ApprovalRequests", (string)null);
+                });
+
+            modelBuilder.Entity("SmartFleet.Backend.Models.BreakdownReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("DiagnosisResultJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("PhotoUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid>("ReportedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RoverId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("SymptomCategory")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ReportedById");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("BreakdownReports", (string)null);
+                });
+
+            modelBuilder.Entity("SmartFleet.Backend.Models.DispatchRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CargoType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DestinationZone")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("OperatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("PreferredTimeWindow")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("RoverId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceZone")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("OperatorId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("DispatchRequests", (string)null);
+                });
+
+            modelBuilder.Entity("SmartFleet.Backend.Models.FailureCatalog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("EstimatedRepairHours")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LikelyPart")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("SymptomCategory")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("SymptomKeyword")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SymptomKeyword");
+
+                    b.ToTable("FailureCatalogs", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111101"),
+                            EstimatedRepairHours = 2,
+                            LikelyPart = "Drive Motor Unit",
+                            Severity = "High",
+                            SymptomCategory = "MotorOverheating",
+                            SymptomKeyword = "motor overheating"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111102"),
+                            EstimatedRepairHours = 3,
+                            LikelyPart = "Wheel Bearing & Axle Assembly",
+                            Severity = "High",
+                            SymptomCategory = "WheelJam",
+                            SymptomKeyword = "wheel jam"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111103"),
+                            EstimatedRepairHours = 2,
+                            LikelyPart = "Drive Motor Unit",
+                            Severity = "High",
+                            SymptomCategory = "MotorOverheating",
+                            SymptomKeyword = "grinding noise"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111104"),
+                            EstimatedRepairHours = 1,
+                            LikelyPart = "Front LiDAR / Ultrasonic Array",
+                            Severity = "Medium",
+                            SymptomCategory = "SensorFault",
+                            SymptomKeyword = "sensor fault"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111105"),
+                            EstimatedRepairHours = 4,
+                            LikelyPart = "Lithium Iron Phosphate Battery Pack",
+                            Severity = "Critical",
+                            SymptomCategory = "BatteryDegradation",
+                            SymptomKeyword = "battery degradation"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111106"),
+                            EstimatedRepairHours = 1,
+                            LikelyPart = "Telemetry Wi-Fi / UWB Module",
+                            Severity = "Low",
+                            SymptomCategory = "SensorFault",
+                            SymptomKeyword = "communication loss"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111107"),
+                            EstimatedRepairHours = 3,
+                            LikelyPart = "Electromagnetic Brake Caliper",
+                            Severity = "Critical",
+                            SymptomCategory = "WheelJam",
+                            SymptomKeyword = "brake failure"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111108"),
+                            EstimatedRepairHours = 2,
+                            LikelyPart = "Steering Actuator Servo",
+                            Severity = "High",
+                            SymptomCategory = "WheelJam",
+                            SymptomKeyword = "steering lock"
+                        },
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111109"),
+                            EstimatedRepairHours = 2,
+                            LikelyPart = "Power Distribution Board (PDB)",
+                            Severity = "High",
+                            SymptomCategory = "BatteryDegradation",
+                            SymptomKeyword = "overvoltage"
+                        });
+                });
+
             modelBuilder.Entity("SmartFleet.Backend.Models.Rover", b =>
                 {
                     b.Property<Guid>("Id")
@@ -178,378 +490,6 @@ namespace SmartFleet.Backend.Data.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
-            modelBuilder.Entity("SmartFleet.Backend.Models.DispatchRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("CargoType")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DestinationZone")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<Guid>("OperatorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("PreferredTimeWindow")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Priority")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<Guid?>("RoverId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("SourceZone")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("OperatorId");
-
-                    b.HasIndex("Status");
-
-                    b.ToTable("DispatchRequests", (string)null);
-                });
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.WorkflowRun", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("CurrentStep")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("DispatchRequestId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ObjectiveJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("PlanJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DispatchRequestId");
-
-                    b.ToTable("WorkflowRuns", (string)null);
-                });
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.DispatchRequest", b =>
-                {
-                    b.HasOne("SmartFleet.Backend.Models.User", "Operator")
-                        .WithMany()
-                        .HasForeignKey("OperatorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Operator");
-                });
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.WorkflowRun", b =>
-                {
-                    b.HasOne("SmartFleet.Backend.Models.DispatchRequest", "DispatchRequest")
-                        .WithMany("WorkflowRuns")
-                        .HasForeignKey("DispatchRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("DispatchRequest");
-                });
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.DispatchRequest", b =>
-                {
-                    b.Navigation("WorkflowRuns");
-                });
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.BreakdownReport", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("DiagnosisResultJson")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ErrorCode")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("PhotoUrl")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<Guid>("ReportedById")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("RoverId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("SymptomCategory")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("ReportedById");
-
-                    b.HasIndex("Status");
-
-                    b.ToTable("BreakdownReports", (string)null);
-                });
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.FailureCatalog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("EstimatedRepairHours")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("LikelyPart")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("Severity")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("SymptomCategory")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("SymptomKeyword")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SymptomKeyword");
-
-                    b.ToTable("FailureCatalogs", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111101"),
-                            EstimatedRepairHours = 2,
-                            LikelyPart = "Drive Motor Unit",
-                            Severity = "High",
-                            SymptomCategory = "MotorOverheating",
-                            SymptomKeyword = "motor overheating"
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111102"),
-                            EstimatedRepairHours = 3,
-                            LikelyPart = "Wheel Bearing & Axle Assembly",
-                            Severity = "High",
-                            SymptomCategory = "WheelJam",
-                            SymptomKeyword = "wheel jam"
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111103"),
-                            EstimatedRepairHours = 2,
-                            LikelyPart = "Drive Motor Unit",
-                            Severity = "High",
-                            SymptomCategory = "MotorOverheating",
-                            SymptomKeyword = "grinding noise"
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111104"),
-                            EstimatedRepairHours = 1,
-                            LikelyPart = "Front LiDAR / Ultrasonic Array",
-                            Severity = "Medium",
-                            SymptomCategory = "SensorFault",
-                            SymptomKeyword = "sensor fault"
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111105"),
-                            EstimatedRepairHours = 4,
-                            LikelyPart = "Lithium Iron Phosphate Battery Pack",
-                            Severity = "Critical",
-                            SymptomCategory = "BatteryDegradation",
-                            SymptomKeyword = "battery degradation"
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111106"),
-                            EstimatedRepairHours = 1,
-                            LikelyPart = "Telemetry Wi-Fi / UWB Module",
-                            Severity = "Low",
-                            SymptomCategory = "SensorFault",
-                            SymptomKeyword = "communication loss"
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111107"),
-                            EstimatedRepairHours = 3,
-                            LikelyPart = "Electromagnetic Brake Caliper",
-                            Severity = "Critical",
-                            SymptomCategory = "WheelJam",
-                            SymptomKeyword = "brake failure"
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111108"),
-                            EstimatedRepairHours = 2,
-                            LikelyPart = "Steering Actuator Servo",
-                            Severity = "High",
-                            SymptomCategory = "WheelJam",
-                            SymptomKeyword = "steering lock"
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111109"),
-                            EstimatedRepairHours = 2,
-                            LikelyPart = "Power Distribution Board (PDB)",
-                            Severity = "High",
-                            SymptomCategory = "BatteryDegradation",
-                            SymptomKeyword = "overvoltage"
-                        });
-                });
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.BreakdownReport", b =>
-                {
-                    b.HasOne("SmartFleet.Backend.Models.User", "ReportedBy")
-                        .WithMany()
-                        .HasForeignKey("ReportedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ReportedBy");
-                });
-
-            modelBuilder.Entity("SmartFleet.Backend.Models.ApprovalRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AgentSummaryJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DispatchRequestId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("ReviewNotes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<Guid?>("ReviewedById")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("RiskReason")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<int>("RiskScore")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("RoverId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("DispatchRequestId");
-
-                    b.HasIndex("ReviewedById");
-
-                    b.HasIndex("Status");
-
-                    b.ToTable("ApprovalRequests", (string)null);
-                });
-
             modelBuilder.Entity("SmartFleet.Backend.Models.WorkflowExecutionLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -587,13 +527,83 @@ namespace SmartFleet.Backend.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<Guid?>("WorkflowRunId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DispatchRequestId");
 
                     b.HasIndex("Timestamp");
 
+                    b.HasIndex("WorkflowRunId", "Timestamp");
+
                     b.ToTable("WorkflowExecutionLogs", (string)null);
+                });
+
+            modelBuilder.Entity("SmartFleet.Backend.Models.WorkflowRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentStep")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("DispatchRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ObjectiveJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlanJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("Progress")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("ReservedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RoverId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StartZone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WeatherRisk")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DispatchRequestId");
+
+                    b.ToTable("WorkflowRuns", (string)null);
                 });
 
             modelBuilder.Entity("SmartFleet.Backend.Models.ApprovalRequest", b =>
@@ -604,6 +614,44 @@ namespace SmartFleet.Backend.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("ReviewedBy");
+                });
+
+            modelBuilder.Entity("SmartFleet.Backend.Models.BreakdownReport", b =>
+                {
+                    b.HasOne("SmartFleet.Backend.Models.User", "ReportedBy")
+                        .WithMany()
+                        .HasForeignKey("ReportedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ReportedBy");
+                });
+
+            modelBuilder.Entity("SmartFleet.Backend.Models.DispatchRequest", b =>
+                {
+                    b.HasOne("SmartFleet.Backend.Models.User", "Operator")
+                        .WithMany()
+                        .HasForeignKey("OperatorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Operator");
+                });
+
+            modelBuilder.Entity("SmartFleet.Backend.Models.WorkflowRun", b =>
+                {
+                    b.HasOne("SmartFleet.Backend.Models.DispatchRequest", "DispatchRequest")
+                        .WithMany("WorkflowRuns")
+                        .HasForeignKey("DispatchRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DispatchRequest");
+                });
+
+            modelBuilder.Entity("SmartFleet.Backend.Models.DispatchRequest", b =>
+                {
+                    b.Navigation("WorkflowRuns");
                 });
 #pragma warning restore 612, 618
         }

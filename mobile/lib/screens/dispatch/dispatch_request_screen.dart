@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../core/constants/app_colors.dart';
@@ -17,6 +18,7 @@ class DispatchRequestScreen extends StatefulWidget {
 class _DispatchRequestScreenState extends State<DispatchRequestScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _refreshTimer;
   final DispatchService _dispatchService = DispatchService();
 
   // Form State
@@ -55,17 +57,26 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadHistory();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) => _refreshHistory());
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _tabController.dispose();
     _sourceZoneController.dispose();
     _destinationZoneController.dispose();
     super.dispose();
   }
 
+  Future<void> _refreshHistory() async {
+    try {
+      final list = await _dispatchService.fetchMyRequests();
+      if (mounted) setState(() => _history = list);
+    } catch (_) { /* Manual refresh reports connection errors. */ }
+  }
   Future<void> _loadHistory() async {
+    if (!mounted) return;
     setState(() {
       _isLoadingHistory = true;
       _historyError = null;
@@ -73,11 +84,13 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
 
     try {
       final list = await _dispatchService.fetchMyRequests();
+      if (!mounted) return;
       setState(() {
         _history = list;
         _isLoadingHistory = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _historyError = e.toString().replaceAll('Exception: ', '');
         _isLoadingHistory = false;
@@ -94,7 +107,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        setState(() {
+        if (!mounted) return;
+      setState(() {
           _isLocating = false;
           _locationStatus = 'Location services disabled on device.';
         });
@@ -105,7 +119,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          setState(() {
+          if (!mounted) return;
+      setState(() {
             _isLocating = false;
             _locationStatus = 'Location permission denied by user.';
           });
@@ -114,7 +129,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
       }
 
       if (permission == LocationPermission.deniedForever) {
-        setState(() {
+        if (!mounted) return;
+      setState(() {
           _isLocating = false;
           _locationStatus = 'Location permission permanently denied in settings.';
         });
@@ -126,6 +142,7 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
         timeLimit: const Duration(seconds: 10),
       );
 
+      if (!mounted) return;
       setState(() {
         _capturedLatitude = position.latitude;
         _capturedLongitude = position.longitude;
@@ -134,6 +151,7 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
             'GPS Captured: ${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLocating = false;
         _locationStatus = 'Failed to acquire GPS fix ($e)';
@@ -169,6 +187,7 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
       );
 
       _loadHistory();
+
       _tabController.animateTo(1);
     } catch (e) {
       if (!mounted) return;
@@ -198,6 +217,7 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
 
       final plan = await _dispatchService.generatePlan(item.id);
       _loadHistory();
+
 
       if (!mounted) return;
       _showPlanBottomSheet(plan, item.id);

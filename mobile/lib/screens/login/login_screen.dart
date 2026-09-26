@@ -12,8 +12,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'operator@smartfleet.internal');
-  final _passwordController = TextEditingController(text: 'Password123!');
+  final _emailController = TextEditingController(text: 'operator@demo.smartfleet');
+  final _passwordController = TextEditingController(text: 'DemoFleet!2026');
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
 
@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _fillDemo(String email) {
     setState(() {
       _emailController.text = email;
-      _passwordController.text = 'Password123!';
+      _passwordController.text = 'DemoFleet!2026';
     });
   }
 
@@ -215,13 +215,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ActionChip(
                         label: const Text('Operator', style: TextStyle(color: AppColors.textMain)),
                         backgroundColor: AppColors.surface,
-                        onPressed: () => _fillDemo('operator@smartfleet.internal'),
+                        onPressed: () => _fillDemo('operator@demo.smartfleet'),
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
                         label: const Text('Technician', style: TextStyle(color: AppColors.textMain)),
                         backgroundColor: AppColors.surface,
-                        onPressed: () => _fillDemo('tech@smartfleet.internal'),
+                        onPressed: () => _fillDemo('technician@demo.smartfleet'),
                       ),
                     ],
                   ),

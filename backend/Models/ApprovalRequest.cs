@@ -10,6 +10,8 @@ namespace SmartFleet.Backend.Models;
 public class ApprovalRequest
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? WorkflowRunId { get; set; }
+    public Guid ConcurrencyToken { get; set; } = Guid.NewGuid();
 
     /// <summary>
     /// Identifier of the linked dispatch request (unconstrained column; real table lives in teammate's branch).

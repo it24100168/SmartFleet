@@ -35,7 +35,7 @@ public class WeatherService : IWeatherService
         if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUR_OPENWEATHER_API_KEY")
         {
             _logger.LogInformation("OpenWeather API key is not configured. Utilizing simulated warehouse weather assessment.");
-            return GenerateSimulatedWeather(sourceZone, destinationZone);
+            return UnavailableWeather();
         }
 
         // Retry logic with timeout and error handling
@@ -69,7 +69,7 @@ public class WeatherService : IWeatherService
             }
         }
 
-        return GenerateSimulatedWeather(sourceZone, destinationZone);
+        return UnavailableWeather();
     }
 
     private static WeatherAssessmentResult ParseOpenWeatherResponse(JsonElement json)
@@ -119,16 +119,16 @@ public class WeatherService : IWeatherService
         };
     }
 
-    private static WeatherAssessmentResult GenerateSimulatedWeather(string sourceZone, string destinationZone)
+    private static WeatherAssessmentResult UnavailableWeather()
     {
         // Safe deterministic simulated weather for warehouse indoor/outdoor dock logistics
         return new WeatherAssessmentResult
         {
-            WeatherRisk = "low",
-            ConditionDescription = "Indoor Warehouse Protected / Clear",
+            WeatherRisk = "unknown",
+            ConditionDescription = "Weather unavailable. Dispatch blocked until a valid assessment is available.",
             TemperatureCelsius = 22.5,
             RainVolumeMm = 0.0,
-            IsSimulatedFallback = true
+            IsSimulatedFallback = false
         };
     }
 }

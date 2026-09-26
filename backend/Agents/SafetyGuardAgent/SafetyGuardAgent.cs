@@ -41,7 +41,7 @@ public class SafetyGuardAgent : ISafetyGuardAgent
         var riskReasons = new List<string>();
 
         // 1. Weather risk evaluation (contract values: "low", "medium", "high")
-        var weather = input.TelemetryResult?.WeatherRisk?.ToLowerInvariant() ?? "low";
+        var weather = input.TelemetryResult?.WeatherRisk?.ToLowerInvariant() ?? "unknown";
         switch (weather)
         {
             case "high":
@@ -125,7 +125,11 @@ public class SafetyGuardAgent : ISafetyGuardAgent
 
         bool isCriticalDepletionAndWeather = (input.TelemetryResult != null && !input.TelemetryResult.BatteryOk && weather == "high");
 
-        if (finalRiskScore >= 75 || isCriticalHardwareHazard || isCriticalDepletionAndWeather)
+                bool invalidPrerequisite = input.TelemetryResult == null || !input.TelemetryResult.BatteryOk || !input.TelemetryResult.Locked
+            || weather is not ("low" or "medium") || input.MissionPlanSummary?.Plan == null || input.MissionPlanSummary.Plan.Count == 0
+            || string.IsNullOrWhiteSpace(input.RoverId) || string.IsNullOrWhiteSpace(input.DispatchRequestId);
+        if (invalidPrerequisite) finalRiskReason = "Required safety prerequisites failed: " + finalRiskReason;
+        if (invalidPrerequisite || finalRiskScore >= 75 || isCriticalHardwareHazard || isCriticalDepletionAndWeather)
         {
             autoOutcome = "AutoRejected";
             requiresApproval = false;
@@ -154,10 +158,11 @@ public class SafetyGuardAgent : ISafetyGuardAgent
         var outputJson = JsonSerializer.Serialize(output);
 
         // Human-in-the-Loop Pause: If approval is required, create a pending ApprovalRequest row
-        if (requiresApproval)
+        if (requiresApproval && !(input.WorkflowRunId.HasValue && await _dbContext.ApprovalRequests.AnyAsync(a => a.WorkflowRunId == input.WorkflowRunId, cancellationToken)))
         {
             var approvalRequest = new ApprovalRequest
             {
+                WorkflowRunId = input.WorkflowRunId,
                 DispatchRequestId = input.DispatchRequestId,
                 RoverId = input.RoverId,
                 AgentSummaryJson = inputJson,
@@ -180,6 +185,7 @@ public class SafetyGuardAgent : ISafetyGuardAgent
         // Log auditable execution summary to WorkflowExecutionLog
         var executionLog = new WorkflowExecutionLog
         {
+            WorkflowRunId = input.WorkflowRunId,
             DispatchRequestId = input.DispatchRequestId,
             StepName = "SafetyGuardEvaluation",
             AgentName = "SafetyGuardAgent",

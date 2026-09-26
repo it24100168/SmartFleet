@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
-  // Automatically routes to localhost for Web/Desktop, or 10.0.2.2 for Android Emulator
-  static String get baseUrl =>
-      kIsWeb ? 'http://localhost:5000/api' : 'http://10.0.2.2:5000/api';
-
+  static String get baseUrl {
+    const configured = String.fromEnvironment('API_BASE_URL');
+    if (configured.isNotEmpty) return configured;
+    return !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+        ? 'http://10.0.2.2:5078/api' : 'http://localhost:5078/api';
+  }
   // Endpoints
   static const String login = '/auth/login';
   static const String register = '/auth/register';
@@ -13,4 +15,3 @@ class ApiConstants {
   static const String dispatchRequests = '/dispatch-requests';
   static const String breakdownReports = '/breakdown-reports';
 }
-

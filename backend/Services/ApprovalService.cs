@@ -12,16 +12,16 @@ namespace SmartFleet.Backend.Services;
 public class ApprovalService : IApprovalService
 {
     private readonly SmartFleetDbContext _dbContext;
-    private readonly IDispatchSyncService _dispatchSyncService;
+    private readonly WorkflowOrchestrator _workflow;
     private readonly ILogger<ApprovalService> _logger;
 
     public ApprovalService(
         SmartFleetDbContext dbContext,
-        IDispatchSyncService dispatchSyncService,
+        WorkflowOrchestrator workflow,
         ILogger<ApprovalService> logger)
     {
         _dbContext = dbContext;
-        _dispatchSyncService = dispatchSyncService;
+        _workflow = workflow;
         _logger = logger;
     }
 
@@ -35,7 +35,7 @@ public class ApprovalService : IApprovalService
         CancellationToken cancellationToken = default)
     {
         // Auto-seed demo records if DB is fresh so supervisor dashboard is immediately active
-        await SeedDemoDataIfEmptyAsync(cancellationToken);
+
 
         var query = _dbContext.ApprovalRequests
             .Include(a => a.ReviewedBy)
@@ -102,137 +102,11 @@ public class ApprovalService : IApprovalService
     }
 
     public async Task<ApprovalRequestDto> ApproveAsync(Guid id, Guid? supervisorId, string? notes, CancellationToken cancellationToken = default)
-    {
-        var approval = await _dbContext.ApprovalRequests
-            .Include(a => a.ReviewedBy)
-            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException($"ApprovalRequest with ID '{id}' was not found.");
-
-        if (approval.Status != ApprovalStatus.Pending)
-        {
-            throw new InvalidOperationException($"Cannot approve request with current status '{approval.Status}'. Only 'Pending' requests can be approved.");
-        }
-
-        var validSupervisorId = await ResolveValidSupervisorIdAsync(supervisorId, cancellationToken);
-
-        approval.Status = ApprovalStatus.Approved;
-        approval.ReviewedById = validSupervisorId;
-        approval.ReviewNotes = notes;
-        approval.UpdatedAt = DateTime.UtcNow;
-
-        // Propagate to linked DispatchRequest component via internal service
-        await _dispatchSyncService.UpdateDispatchRequestStatusAsync(approval.DispatchRequestId, "Approved", notes, cancellationToken);
-
-        // Record supervisor action into WorkflowExecutionLog
-        _dbContext.WorkflowExecutionLogs.Add(new WorkflowExecutionLog
-        {
-            DispatchRequestId = approval.DispatchRequestId,
-            StepName = "SupervisorApproval",
-            AgentName = "Supervisor",
-            InputJson = JsonSerializer.Serialize(new { Decision = "Approve", Notes = notes }),
-            OutputJson = JsonSerializer.Serialize(new { Status = "Approved", SupervisorId = validSupervisorId, Timestamp = approval.UpdatedAt }),
-            ValidationResult = "Approved",
-            Timestamp = DateTime.UtcNow
-        });
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("ApprovalRequest {Id} was approved by supervisor {SupervisorId}", id, validSupervisorId);
-
-        return MapToDto(approval);
-    }
-
+        => MapToDto(await _workflow.DecideAsync(id, supervisorId, "Approved", notes, cancellationToken));
     public async Task<ApprovalRequestDto> RejectAsync(Guid id, Guid? supervisorId, string? notes, CancellationToken cancellationToken = default)
-    {
-        var approval = await _dbContext.ApprovalRequests
-            .Include(a => a.ReviewedBy)
-            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException($"ApprovalRequest with ID '{id}' was not found.");
-
-        if (approval.Status != ApprovalStatus.Pending)
-        {
-            throw new InvalidOperationException($"Cannot reject request with current status '{approval.Status}'. Only 'Pending' requests can be rejected.");
-        }
-
-        var validSupervisorId = await ResolveValidSupervisorIdAsync(supervisorId, cancellationToken);
-
-        approval.Status = ApprovalStatus.Rejected;
-        approval.ReviewedById = validSupervisorId;
-        approval.ReviewNotes = notes;
-        approval.UpdatedAt = DateTime.UtcNow;
-
-        await _dispatchSyncService.UpdateDispatchRequestStatusAsync(approval.DispatchRequestId, "Rejected", notes, cancellationToken);
-
-        _dbContext.WorkflowExecutionLogs.Add(new WorkflowExecutionLog
-        {
-            DispatchRequestId = approval.DispatchRequestId,
-            StepName = "SupervisorRejection",
-            AgentName = "Supervisor",
-            InputJson = JsonSerializer.Serialize(new { Decision = "Reject", Notes = notes }),
-            OutputJson = JsonSerializer.Serialize(new { Status = "Rejected", SupervisorId = validSupervisorId, Timestamp = approval.UpdatedAt }),
-            ValidationResult = "Rejected",
-            Timestamp = DateTime.UtcNow
-        });
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("ApprovalRequest {Id} was rejected by supervisor {SupervisorId}", id, validSupervisorId);
-
-        return MapToDto(approval);
-    }
-
+        => MapToDto(await _workflow.DecideAsync(id, supervisorId, "Rejected", notes, cancellationToken));
     public async Task<ApprovalRequestDto> RequestRevisionAsync(Guid id, Guid? supervisorId, string? notes, CancellationToken cancellationToken = default)
-    {
-        var approval = await _dbContext.ApprovalRequests
-            .Include(a => a.ReviewedBy)
-            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException($"ApprovalRequest with ID '{id}' was not found.");
-
-        if (approval.Status != ApprovalStatus.Pending)
-        {
-            throw new InvalidOperationException($"Cannot request revision on request with status '{approval.Status}'. Only 'Pending' requests can be revised.");
-        }
-
-        var validSupervisorId = await ResolveValidSupervisorIdAsync(supervisorId, cancellationToken);
-
-        approval.Status = ApprovalStatus.RevisionRequested;
-        approval.ReviewedById = validSupervisorId;
-        approval.ReviewNotes = notes;
-        approval.UpdatedAt = DateTime.UtcNow;
-
-        await _dispatchSyncService.UpdateDispatchRequestStatusAsync(approval.DispatchRequestId, "RevisionRequested", notes, cancellationToken);
-
-        _dbContext.WorkflowExecutionLogs.Add(new WorkflowExecutionLog
-        {
-            DispatchRequestId = approval.DispatchRequestId,
-            StepName = "SupervisorRevisionRequest",
-            AgentName = "Supervisor",
-            InputJson = JsonSerializer.Serialize(new { Decision = "RequestRevision", Notes = notes }),
-            OutputJson = JsonSerializer.Serialize(new { Status = "RevisionRequested", SupervisorId = validSupervisorId, Timestamp = approval.UpdatedAt }),
-            ValidationResult = "RevisionRequested",
-            Timestamp = DateTime.UtcNow
-        });
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("ApprovalRequest {Id} had revision requested by supervisor {SupervisorId}", id, validSupervisorId);
-
-        return MapToDto(approval);
-    }
-
-    private async Task<Guid?> ResolveValidSupervisorIdAsync(Guid? supervisorId, CancellationToken cancellationToken)
-    {
-        if (supervisorId.HasValue && supervisorId.Value != Guid.Empty)
-        {
-            var userExists = await _dbContext.Users.AnyAsync(u => u.Id == supervisorId.Value, cancellationToken);
-            if (userExists)
-            {
-                return supervisorId.Value;
-            }
-        }
-
-        // Fallback: Check if any supervisor user exists in the database
-        var supervisor = await _dbContext.Users.FirstOrDefaultAsync(u => u.Role == Role.Supervisor, cancellationToken);
-        return supervisor?.Id;
-    }
-
+        => MapToDto(await _workflow.DecideAsync(id, supervisorId, "RevisionRequested", notes, cancellationToken));
     public async Task<List<WorkflowExecutionLogDto>> GetExecutionLogsAsync(Guid approvalRequestId, CancellationToken cancellationToken = default)
     {
         var approval = await _dbContext.ApprovalRequests
@@ -281,216 +155,7 @@ public class ApprovalService : IApprovalService
         };
     }
 
-    public async Task SeedDemoDataIfEmptyAsync(CancellationToken cancellationToken = default)
-    {
-        if (await _dbContext.ApprovalRequests.AnyAsync(cancellationToken))
-        {
-            return;
-        }
-
-        var supervisor = await _dbContext.Users.FirstOrDefaultAsync(u => u.Role == Role.Supervisor, cancellationToken);
-
-        // Demo item 1: Pending with moderate weather and proximity sensor note
-        var d1 = "d3f1-892a";
-        var r1 = "RO-04";
-        var input1 = new SafetyGuardInput
-        {
-            DispatchRequestId = d1,
-            RoverId = r1,
-            MissionPlanSummary = new MissionPlanSummary
-            {
-                Plan = new List<PlanStepSummary>
-                {
-                    new() { StepNumber = 1, StepName = "Locate available rover", Status = "Completed" },
-                    new() { StepNumber = 2, StepName = "Verify battery sufficient", Status = "Pending" }
-                }
-            },
-            TelemetryResult = new TelemetryResultSummary
-            {
-                BatteryOk = true,
-                WeatherRisk = "medium",
-                Locked = true
-            },
-            MaintenanceResult = new MaintenanceResultSummary
-            {
-                BreakdownReportId = "b9a1-1209",
-                LikelyPart = "Proximity Sensor Array",
-                EstimatedRepairHours = 1.5,
-                Severity = "Medium",
-                ConfidenceNote = "Telemetry drift detected in dock area",
-                RecommendedAction = "ScheduleRepair"
-            }
-        };
-
-        var output1 = new SafetyGuardOutput
-        {
-            DispatchRequestId = d1,
-            RiskScore = 65,
-            RiskReason = "Moderate weather risk across transit zone, Subsystem alert logged (b9a1-1209: Proximity Sensor Array)",
-            RequiresApproval = true,
-            AutoOutcome = "PendingApproval"
-        };
-
-        var req1 = new ApprovalRequest
-        {
-            Id = Guid.NewGuid(),
-            DispatchRequestId = d1,
-            RoverId = r1,
-            AgentSummaryJson = JsonSerializer.Serialize(input1),
-            RiskScore = 65,
-            RiskReason = output1.RiskReason,
-            Status = ApprovalStatus.Pending,
-            CreatedAt = DateTime.UtcNow.AddMinutes(-45),
-            UpdatedAt = DateTime.UtcNow.AddMinutes(-45)
-        };
-
-        // Demo item 2: Pending with low battery margin
-        var d2 = "d7e2-1104";
-        var r2 = "RO-02";
-        var input2 = new SafetyGuardInput
-        {
-            DispatchRequestId = d2,
-            RoverId = r2,
-            MissionPlanSummary = new MissionPlanSummary
-            {
-                Plan = new List<PlanStepSummary>
-                {
-                    new() { StepNumber = 1, StepName = "Assign freight corridor B", Status = "Completed" },
-                    new() { StepNumber = 2, StepName = "Navigate ramp incline", Status = "Pending" }
-                }
-            },
-            TelemetryResult = new TelemetryResultSummary
-            {
-                BatteryOk = false,
-                WeatherRisk = "low",
-                Locked = true
-            },
-            MaintenanceResult = null
-        };
-
-        var output2 = new SafetyGuardOutput
-        {
-            DispatchRequestId = d2,
-            RiskScore = 45,
-            RiskReason = "Insufficient battery reserve for mission profile",
-            RequiresApproval = true,
-            AutoOutcome = "PendingApproval"
-        };
-
-        var req2 = new ApprovalRequest
-        {
-            Id = Guid.NewGuid(),
-            DispatchRequestId = d2,
-            RoverId = r2,
-            AgentSummaryJson = JsonSerializer.Serialize(input2),
-            RiskScore = 45,
-            RiskReason = output2.RiskReason,
-            Status = ApprovalStatus.Pending,
-            CreatedAt = DateTime.UtcNow.AddMinutes(-20),
-            UpdatedAt = DateTime.UtcNow.AddMinutes(-20)
-        };
-
-        // Demo item 3: Approved request
-        var d3 = "d4a9-5521";
-        var r3 = "RO-07";
-        var input3 = new SafetyGuardInput
-        {
-            DispatchRequestId = d3,
-            RoverId = r3,
-            MissionPlanSummary = new MissionPlanSummary
-            {
-                Plan = new List<PlanStepSummary>
-                {
-                    new() { StepNumber = 1, StepName = "Confirm dock alignment", Status = "Completed" }
-                }
-            },
-            TelemetryResult = new TelemetryResultSummary
-            {
-                BatteryOk = true,
-                WeatherRisk = "medium",
-                Locked = true
-            },
-            MaintenanceResult = null
-        };
-
-        var req3 = new ApprovalRequest
-        {
-            Id = Guid.NewGuid(),
-            DispatchRequestId = d3,
-            RoverId = r3,
-            AgentSummaryJson = JsonSerializer.Serialize(input3),
-            RiskScore = 40,
-            RiskReason = "Moderate weather risk across transit zone",
-            Status = ApprovalStatus.Approved,
-            ReviewedById = supervisor?.Id,
-            ReviewNotes = "Supervisor confirmed indoor weather mitigation active. Proceeding with caution.",
-            CreatedAt = DateTime.UtcNow.AddHours(-3),
-            UpdatedAt = DateTime.UtcNow.AddHours(-2)
-        };
-
-        _dbContext.ApprovalRequests.AddRange(req1, req2, req3);
-
-        // Execution logs for d1
-        _dbContext.WorkflowExecutionLogs.AddRange(
-            new WorkflowExecutionLog
-            {
-                DispatchRequestId = d1,
-                StepName = "MissionPlanning",
-                AgentName = "MissionPlannerAgent",
-                InputJson = JsonSerializer.Serialize(new { sourceZone = "WarehouseA-DockA1", destinationZone = "WarehouseA-DockB3", cargoType = "Fragile", priority = "High" }),
-                OutputJson = JsonSerializer.Serialize(input1.MissionPlanSummary),
-                ValidationResult = "PlanGenerated",
-                Timestamp = DateTime.UtcNow.AddMinutes(-48)
-            },
-            new WorkflowExecutionLog
-            {
-                DispatchRequestId = d1,
-                StepName = "TelemetryVerification",
-                AgentName = "DispatchTelemetryAgent",
-                InputJson = JsonSerializer.Serialize(new { selectedRoverId = r1 }),
-                OutputJson = JsonSerializer.Serialize(input1.TelemetryResult),
-                ValidationResult = "TelemetryAggregated",
-                Timestamp = DateTime.UtcNow.AddMinutes(-46)
-            },
-            new WorkflowExecutionLog
-            {
-                DispatchRequestId = d1,
-                StepName = "SafetyGuardEvaluation",
-                AgentName = "SafetyGuardAgent",
-                InputJson = JsonSerializer.Serialize(input1),
-                OutputJson = JsonSerializer.Serialize(output1),
-                ValidationResult = output1.AutoOutcome,
-                Timestamp = DateTime.UtcNow.AddMinutes(-45)
-            }
-        );
-
-        // Execution logs for d3 (including supervisor sign-off)
-        _dbContext.WorkflowExecutionLogs.AddRange(
-            new WorkflowExecutionLog
-            {
-                DispatchRequestId = d3,
-                StepName = "SafetyGuardEvaluation",
-                AgentName = "SafetyGuardAgent",
-                InputJson = JsonSerializer.Serialize(input3),
-                OutputJson = JsonSerializer.Serialize(new { dispatchRequestId = d3, riskScore = 40, autoOutcome = "PendingApproval" }),
-                ValidationResult = "PendingApproval",
-                Timestamp = DateTime.UtcNow.AddHours(-3)
-            },
-            new WorkflowExecutionLog
-            {
-                DispatchRequestId = d3,
-                StepName = "SupervisorApproval",
-                AgentName = "Supervisor",
-                InputJson = JsonSerializer.Serialize(new { Decision = "Approve", Notes = req3.ReviewNotes }),
-                OutputJson = JsonSerializer.Serialize(new { Status = "Approved", SupervisorId = supervisor?.Id }),
-                ValidationResult = "Approved",
-                Timestamp = DateTime.UtcNow.AddHours(-2)
-            }
-        );
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
+    public Task SeedDemoDataIfEmptyAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     private static ApprovalRequestDto MapToDto(ApprovalRequest entity)
     {
         return new ApprovalRequestDto

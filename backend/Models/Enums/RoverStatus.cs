@@ -6,6 +6,7 @@ namespace SmartFleet.Backend.Models.Enums;
 public enum RoverStatus
 {
     Idle,
+    Reserved,
     Dispatched,
     Charging,
     Maintenance,

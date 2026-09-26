@@ -9,6 +9,8 @@ namespace SmartFleet.Backend.Agents.DispatchTelemetryAgent.Contracts;
 /// </summary>
 public class DispatchTelemetryAgentInput
 {
+    [JsonIgnore]
+    public SmartFleet.Backend.Services.Interfaces.WeatherAssessmentResult? WeatherAssessment { get; set; }
     [JsonPropertyName("dispatchRequestId")]
     public string DispatchRequestId { get; set; } = string.Empty;
 
@@ -40,6 +42,7 @@ public class PlanStepDto
 /// </summary>
 public class DispatchTelemetryAgentOutput
 {
+    public bool IsSimulated { get; set; }
     [JsonPropertyName("dispatchRequestId")]
     public string DispatchRequestId { get; set; } = string.Empty;
 

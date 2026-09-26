@@ -62,6 +62,17 @@ class BreakdownService extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (roverId == null || roverId.trim().isEmpty) {
+        throw Exception('A rover identifier is required.');
+      }
+      final fleetResponse = await _apiClient.get('/rovers?pageSize=100');
+      if (fleetResponse.statusCode != 200) throw Exception('Could not load fleet. Please retry.');
+      final fleetItems = jsonDecode(fleetResponse.body)['items'] as List<dynamic>;
+      final enteredRover = roverId.trim();
+      final matches = fleetItems.where((r) => r['id'] == enteredRover ||
+          r['identifier'].toString().toLowerCase() == enteredRover.toLowerCase()).toList();
+      if (matches.isEmpty) throw Exception('Unknown rover. Enter a fleet identifier such as RO-04.');
+      roverId = matches.first['id'] as String;
       final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.breakdownReports}');
       final request = http.MultipartRequest('POST', uri);
 
@@ -117,4 +128,11 @@ class BreakdownService extends ChangeNotifier {
       notifyListeners();
     }
   }
-}
+  Future<void> markRepaired(String id) async {
+    final token = await _storageService.getToken();
+    final response = await http.patch(Uri.parse('${ApiConstants.baseUrl}${ApiConstants.breakdownReports}/$id/status'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'status': 'Repaired'}));
+    if (response.statusCode != 200) throw Exception('Could not update repair status.');
+    await fetchReports();
+  }}

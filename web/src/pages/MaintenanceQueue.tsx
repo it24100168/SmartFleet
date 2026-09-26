@@ -1,3 +1,4 @@
+import { roversApi, Rover } from '../api/roversApi';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { breakdownApi } from '../api/breakdownApi';
@@ -29,6 +30,9 @@ export const MaintenanceQueue: React.FC = () => {
   const { user } = useAuth();
   const isTechnicianOrSupervisor = user?.role === 'Technician' || user?.role === 'Supervisor';
 
+  const [fleetRovers, setFleetRovers] = useState<Rover[]>([]);
+  const [newRoverId, setNewRoverId] = useState('');
+  useEffect(() => { roversApi.getRovers({ pageSize: 100 }).then(data => setFleetRovers(data.items)).catch(() => {}); }, []);
   // State
   const [reports, setReports] = useState<BreakdownReport[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -83,6 +87,7 @@ export const MaintenanceQueue: React.FC = () => {
 
     try {
       const formData = new FormData();
+      formData.append('RoverId', newRoverId);
       formData.append('SymptomCategory', newCategory);
       formData.append('Description', newDescription.trim());
       if (newErrorCode.trim()) {
@@ -827,7 +832,12 @@ export const MaintenanceQueue: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleCreateReport} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+            <form onSubmit={handleCreateReport} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>              <label className="form-label">Rover *
+                <select className="form-input" required value={newRoverId} onChange={e => setNewRoverId(e.target.value)}>
+                  <option value="">Select a rover</option>
+                  {fleetRovers.map(r => <option key={r.id} value={r.id}>{r.identifier} � {r.status}</option>)}
+                </select>
+              </label>
               <div>
                 <label className="form-label" style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
                   Symptom Category *

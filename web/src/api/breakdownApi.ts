@@ -6,6 +6,8 @@ import {
   PagedBreakdownReports,
 } from '../types/breakdown';
 
+const resolvePhoto = (report: BreakdownReport): BreakdownReport => ({ ...report,
+  photoUrl: report.photoUrl ? new URL(report.photoUrl, new URL(axiosClient.defaults.baseURL || '/api', window.location.origin)).href : null });
 export const breakdownApi = {
   getReports: async (params?: {
     status?: BreakdownStatus;
@@ -16,7 +18,7 @@ export const breakdownApi = {
     const response = await axiosClient.get<PagedBreakdownReports>('/breakdown-reports', {
       params,
     });
-    return response.data;
+    return { ...response.data, items: response.data.items.map(resolvePhoto) };
   },
 
   getReportById: async (id: string): Promise<BreakdownReport> => {

@@ -4,7 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AppLayout } from './components/Layout/AppLayout';
 import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
+import { FleetSimulation } from './pages/FleetSimulation';
 import { DispatchRequests } from './pages/DispatchRequests';
 import { FleetTelemetry } from './pages/FleetTelemetry';
 import { MaintenanceQueue } from './pages/MaintenanceQueue';
@@ -27,7 +27,8 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Dashboard />} />
+            <Route index element={<FleetSimulation />} />
+            <Route path="simulation" element={<FleetSimulation />} />
             <Route path="dispatch" element={<DispatchRequests />} />
             <Route path="telemetry" element={<FleetTelemetry />} />
             <Route path="maintenance" element={<MaintenanceQueue />} />

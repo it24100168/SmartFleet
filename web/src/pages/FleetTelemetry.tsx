@@ -17,7 +17,7 @@ import {
   CheckCircle2,
   XCircle,
   Play,
-  ArrowRight,
+
   Filter,
 } from 'lucide-react';
 
@@ -38,7 +38,7 @@ export const FleetTelemetry: React.FC = () => {
 
   // Weather Assessment State
   const [weather, setWeather] = useState<WeatherAssessmentResult | null>(null);
-  const [isLoadingWeather, setIsLoadingWeather] = useState<boolean>(false);
+  const [, setIsLoadingWeather] = useState<boolean>(false);
 
   // Agent Execution State
   const [agentInput, setAgentInput] = useState<DispatchTelemetryAgentInput>({
@@ -50,8 +50,8 @@ export const FleetTelemetry: React.FC = () => {
     sourceZone: 'WarehouseA-DockA1',
     destinationZone: 'WarehouseA-DockB3',
   });
-  const [agentOutput, setAgentOutput] = useState<DispatchTelemetryAgentOutput | null>(null);
-  const [isExecutingAgent, setIsExecutingAgent] = useState<boolean>(false);
+  const [agentOutput] = useState<DispatchTelemetryAgentOutput | null>(null);
+  const [isExecutingAgent] = useState<boolean>(false);
   const [agentError, setAgentError] = useState<string | null>(null);
 
   // Override / Simulation Modal State
@@ -106,23 +106,6 @@ export const FleetTelemetry: React.FC = () => {
   }, [fetchWeather]);
 
   // Execute Dispatch & Telemetry Agent
-  const handleRunAgent = async () => {
-    setIsExecutingAgent(true);
-    setAgentError(null);
-    setAgentOutput(null);
-
-    try {
-      const result = await agentsApi.executeDispatchTelemetryAgent(agentInput);
-      setAgentOutput(result);
-      // Refresh rovers table to reflect any locked rover state
-      fetchRovers();
-    } catch (err: any) {
-      setAgentError(err.response?.data?.message || err.message || 'Agent execution failed.');
-    } finally {
-      setIsExecutingAgent(false);
-    }
-  };
-
   // Load locked mock input from docs/agent-contracts.md
   const handleLoadMockInput = async () => {
     try {
@@ -142,13 +125,6 @@ export const FleetTelemetry: React.FC = () => {
   };
 
   // Open Override Modal
-  const openOverrideModal = (rover: Rover) => {
-    setSelectedRoverForOverride(rover);
-    setOverrideStatus(rover.status);
-    setOverrideBattery(rover.batteryPercentage);
-    setOverrideZone(rover.locationZone);
-  };
-
   // Save Override
   const handleSaveOverride = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,11 +244,11 @@ export const FleetTelemetry: React.FC = () => {
             </button>
             <button
               className="btn btn-primary"
-              onClick={handleRunAgent}
+              onClick={() => { window.location.href = '/simulation'; }}
               disabled={isExecutingAgent}
               style={{ fontSize: '0.85rem' }}
             >
-              {isExecutingAgent ? <LoadingSpinner size="sm" text="Executing Agent..." /> : <><Play size={14} /> Run Agent Pipeline</>}
+              {isExecutingAgent ? <LoadingSpinner size="sm" text="Executing Agent..." /> : <><Play size={14} /> Open Fleet Simulation</>}
             </button>
           </div>
         </div>
@@ -390,7 +366,7 @@ export const FleetTelemetry: React.FC = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '140px', color: 'var(--text-muted)', textAlign: 'center' }}>
                 <Activity size={24} style={{ opacity: 0.4, marginBottom: '0.5rem' }} />
-                <span style={{ fontSize: '0.85rem' }}>Click &ldquo;Run Agent Pipeline&rdquo; to execute the agent.</span>
+                <span style={{ fontSize: '0.85rem' }}>Click &ldquo;Open Fleet Simulation&rdquo; to execute the agent.</span>
               </div>
             )}
           </div>
@@ -403,7 +379,7 @@ export const FleetTelemetry: React.FC = () => {
           <div>
             <h2 style={{ fontSize: '1.3rem' }}>Warehouse Rovers Fleet ({totalCount})</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Live status from database. Click &ldquo;Simulate / Override&rdquo; to alter battery levels or state for testing.
+              Live status from the database. Manage missions and repairs in Fleet Simulation.
             </p>
           </div>
 
@@ -540,8 +516,8 @@ export const FleetTelemetry: React.FC = () => {
                       <button
                         className="btn btn-secondary"
                         style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
-                        onClick={() => openOverrideModal(rover)}
-                        title="Manually override battery/status for testing"
+                        onClick={() => { window.location.href = '/simulation'; }}
+                        title="Open fleet simulation controls"
                       >
                         <Sliders size={14} /> Simulate
                       </button>

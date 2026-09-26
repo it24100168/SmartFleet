@@ -33,15 +33,9 @@ public class AgentsController : ControllerBase
         [FromBody] DispatchTelemetryAgentInput input,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(input.DispatchRequestId))
-        {
-            return BadRequest(new { message = "dispatchRequestId is required." });
-        }
-
-        var result = await _dispatchAgent.ExecuteAsync(input, cancellationToken);
-        return Ok(result);
+        await Task.CompletedTask;
+        return Conflict(new { message = "Use the dispatch workflow to reserve a rover and preserve the safety approval gate." });
     }
-
     /// <summary>
     /// Returns the exact mock input defined in docs/agent-contracts.md for testing and integration.
     /// </summary>

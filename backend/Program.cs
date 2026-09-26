@@ -1,231 +1,96 @@
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using SmartFleet.Backend.Agents.MissionPlannerAgent;
+using SmartFleet.Backend.Agents.DispatchTelemetryAgent;
 using SmartFleet.Backend.Agents.MaintenanceMechanicAgent;
+using SmartFleet.Backend.Agents.MissionPlannerAgent;
 using SmartFleet.Backend.Agents.SafetyGuardAgent;
 using SmartFleet.Backend.Data;
 using SmartFleet.Backend.Data.Repositories;
 using SmartFleet.Backend.Middleware;
 using SmartFleet.Backend.Services;
 using SmartFleet.Backend.Services.Interfaces;
-using SmartFleet.Backend.Agents.DispatchTelemetryAgent;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// --------------------------------------------------
-// 1. Database Configuration (EF Core + Npgsql)
-// --------------------------------------------------
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
-    ?? "Host=localhost;Port=5432;Database=smartfleet;Username=postgres;Password=postgres";
-
-// Convert postgresql:// URI format to standard ADO.NET format if supplied
-if (!string.IsNullOrEmpty(connectionString) && (connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) || connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)))
-{
-    try
-    {
-        var uri = new Uri(connectionString);
-        var userInfo = uri.UserInfo.Split(':');
-        var user = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
-        var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
-        var host = uri.Host;
-        var port = uri.Port > 0 ? uri.Port : 5432;
-        var db = uri.AbsolutePath.TrimStart('/');
-        connectionString = $"Host={host};Port={port};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;";
-    }
-    catch
-    {
-        // Fall back to sanitizing channel_binding
-        connectionString = connectionString.Replace("&channel_binding=require", "")
-                                           .Replace("?channel_binding=require&", "?")
-                                           .Replace("?channel_binding=require", "");
-    }
-}
-
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true).AddEnvironmentVariables();
+var demo = builder.Configuration.GetValue<bool>("Simulation:Enabled");
+if (demo && !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
+    throw new InvalidOperationException("Simulation mode requires Development or Testing.");
+var secret = builder.Configuration["JwtSettings:Secret"];
+if (string.IsNullOrWhiteSpace(secret) && demo)
+    builder.Configuration["JwtSettings:Secret"] = secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+if (string.IsNullOrWhiteSpace(secret) || Encoding.UTF8.GetByteCount(secret) < 32)
+    throw new InvalidOperationException("Configure JwtSettings__Secret with a private value of at least 32 bytes.");
 builder.Services.AddDbContext<SmartFleetDbContext>(options =>
 {
-    options.UseNpgsql(connectionString, npgsqlOptions =>
+    if (demo) options.UseSqlite(builder.Configuration["Simulation:ConnectionString"] ?? "Data Source=smartfleet-demo.db;Default Timeout=15");
+    else
     {
-        npgsqlOptions.MigrationsAssembly(typeof(SmartFleetDbContext).Assembly.FullName);
-        npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
-    });
+        var connection = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connection)) throw new InvalidOperationException("Configure ConnectionStrings__DefaultConnection for PostgreSQL, or use the demo launcher.");
+        options.UseNpgsql(connection);
+    }
 });
-
-// --------------------------------------------------
-// 2. Application Services & Repositories
-// --------------------------------------------------
-builder.Services.AddHttpClient();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoverRepository, RoverRepository>();
-builder.Services.AddScoped<IBreakdownReportRepository, BreakdownReportRepository>();
-builder.Services.AddScoped<IFailureCatalogRepository, FailureCatalogRepository>();
-builder.Services.AddScoped<IMaintenanceMechanicAgent, MaintenanceMechanicAgent>();
-builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddHttpClient<IWeatherService, WeatherService>();
-builder.Services.AddScoped<IDispatchTelemetryAgent, DispatchTelemetryAgent>();
 builder.Services.AddScoped<IDispatchRequestRepository, DispatchRequestRepository>();
 builder.Services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
-builder.Services.AddScoped<IMissionPlannerAgent, MissionPlannerAgent>();
+builder.Services.AddScoped<IBreakdownReportRepository, BreakdownReportRepository>();
+builder.Services.AddScoped<IFailureCatalogRepository, FailureCatalogRepository>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDispatchService, DispatchService>();
-builder.Services.AddScoped<IDispatchSyncService, DispatchSyncService>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
+
+builder.Services.AddScoped<IMissionPlannerAgent, MissionPlannerAgent>();
+builder.Services.AddScoped<IDispatchTelemetryAgent, DispatchTelemetryAgent>();
+builder.Services.AddScoped<IMaintenanceMechanicAgent, MaintenanceMechanicAgent>();
 builder.Services.AddScoped<ISafetyGuardAgent, SafetyGuardAgent>();
-
-// --------------------------------------------------
-// 3. Authentication & JWT Configuration
-// --------------------------------------------------
-var jwtSecret = builder.Configuration["JwtSettings:Secret"]
-    ?? builder.Configuration["JwtSettings__Secret"]
-    ?? "SmartFleetSuperSecretKeyForJwtAuthentication2026!MustBeAtLeast32BytesLong";
-var jwtIssuer = builder.Configuration["JwtSettings:Issuer"]
-    ?? builder.Configuration["JwtSettings__Issuer"]
-    ?? "SmartFleetAPI";
-var jwtAudience = builder.Configuration["JwtSettings:Audience"]
-    ?? builder.Configuration["JwtSettings__Audience"]
-    ?? "SmartFleetClients";
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
+builder.Services.AddHttpClient<IWeatherService, WeatherService>();
+builder.Services.AddScoped<WorkflowOrchestrator>();
+builder.Services.AddHostedService<MissionSimulator>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,
-        ValidIssuer = jwtIssuer,
-        ValidateAudience = true,
-        ValidAudience = jwtAudience,
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
-    };
-});
-
+        ValidateIssuer = true, ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "SmartFleetAPI",
+        ValidateAudience = true, ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "SmartFleetClients",
+        ValidateIssuerSigningKey = true, IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+        ValidateLifetime = true, ClockSkew = TimeSpan.FromSeconds(10)
+    });
 builder.Services.AddAuthorization();
-
-// --------------------------------------------------
-// 4. CORS Policy (React & Flutter Origins)
-// --------------------------------------------------
-const string CorsPolicyName = "SmartFleetCorsPolicy";
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(CorsPolicyName, policy =>
-    {
-        policy.SetIsOriginAllowed(origin =>
-            {
-                if (string.IsNullOrEmpty(origin)) return false;
-                var uri = new Uri(origin);
-                // Allow localhost on any port for React/Flutter web development
-                return uri.Host == "localhost" || uri.Host == "127.0.0.1";
-            })
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
-    });
-});
-
-// --------------------------------------------------
-// 5. Controllers & JSON Formatting
-// --------------------------------------------------
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
-    });
-
-// --------------------------------------------------
-// 6. Swagger / OpenAPI with JWT Bearer Support
-// --------------------------------------------------
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
+    .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:5173" })
+    .AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
+builder.Services.AddSwaggerGen(options =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "SmartFleet API",
-        Version = "v1",
-        Description = "Backend API for SmartFleet autonomous warehouse rover management system."
-    });
-
-    // Configure JWT Bearer Authorization in Swagger UI
-    var securityScheme = new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Description = "Enter 'Bearer' [space] followed by your valid JWT token.\nExample: Bearer eyJhbGciOi...",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        Reference = new OpenApiReference
-        {
-            Id = JwtBearerDefaults.AuthenticationScheme,
-            Type = ReferenceType.SecurityScheme
-        }
-    };
-
-    c.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, securityScheme);
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        { securityScheme, Array.Empty<string>() }
-    });
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "SmartFleet", Version = "v1" });
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme { Type = SecuritySchemeType.Http, Scheme = "bearer", BearerFormat = "JWT" });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement { [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }] = Array.Empty<string>() });
 });
-
-// --------------------------------------------------
-// 7. HTTP Pipeline Configuration
-// --------------------------------------------------
+Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "wwwroot", "uploads", "breakdowns"));
+builder.Environment.WebRootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+builder.Environment.WebRootFileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(builder.Environment.WebRootPath);
 var app = builder.Build();
-
-// Automatically apply EF Core migrations against PostgreSQL on startup
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
-    try
-    {
-        logger.LogInformation("Checking and applying pending database migrations...");
-        var db = services.GetRequiredService<SmartFleetDbContext>();
-        db.Database.Migrate();
-        logger.LogInformation("Database migrations applied successfully.");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Failed to apply database migrations automatically on startup.");
-    }
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<SmartFleetDbContext>();
+    if (demo) { await db.Database.EnsureCreatedAsync(); await DemoSeeder.SeedAsync(db, builder.Configuration); }
+    else if (builder.Configuration.GetValue<bool>("Database:ApplyMigrations")) await db.Database.MigrateAsync();
 }
-
-// Global exception handling
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-// Enable Swagger in Development & Staging
-if (app.Environment.IsDevelopment() || true)
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartFleet API v1");
-        c.RoutePrefix = "swagger";
-    });
-}
-
-app.UseCors(CorsPolicyName);
+if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
+app.UseCors();
+Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads", "breakdowns"));
 app.UseStaticFiles();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
+app.MapGet("/api/health", async (SmartFleetDbContext db) => await db.Database.CanConnectAsync() ? Results.Ok(new { status = "ready", demo }) : Results.StatusCode(503));
 app.Run();
-
-// Export Program class for test fixtures if needed
 public partial class Program { }

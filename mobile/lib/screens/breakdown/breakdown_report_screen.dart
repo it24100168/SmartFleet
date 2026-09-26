@@ -1,3 +1,5 @@
+import '../../services/auth_service.dart';
+import '../../models/role.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -277,12 +279,13 @@ class _BreakdownReportScreenState extends State<BreakdownReportScreen>
 
             // Rover ID Field (Optional)
             const Text(
-              'ROVER ID (OPTIONAL)',
+              'ROVER IDENTIFIER *',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted, letterSpacing: 0.5),
             ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _roverIdController,
+              validator: (value) => value == null || value.trim().isEmpty ? 'Enter a rover identifier' : null,
               style: const TextStyle(color: AppColors.textMain),
               decoration: InputDecoration(
                 hintText: 'e.g. RO-04',
@@ -560,6 +563,15 @@ class _BreakdownReportScreenState extends State<BreakdownReportScreen>
                 ),
                 const SizedBox(height: 6),
 
+                if (report.status != 'Repaired' && Provider.of<AuthService>(context).currentUser?.role != Role.operator)
+                  TextButton.icon(
+                    icon: const Icon(Icons.build_circle_outlined),
+                    label: const Text('Mark repaired'),
+                    onPressed: () async {
+                      try { await breakdownService.markRepaired(report.id); }
+                      catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
+                    },
+                  ),
                 // Description
                 Text(
                   report.description,

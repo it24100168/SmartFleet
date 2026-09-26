@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+const base = process.env.SMARTFLEET_TEST_URL || 'http://localhost:5078/api';
+const health = await (await fetch(`${base}/health`)).json();
+assert.equal(health.demo, true, 'This script only writes to an explicitly enabled demo API.');
+async function api(path, token, method='GET', body, status=200) {
+  const response=await fetch(base+path,{method,headers:{...(token?{Authorization:`Bearer ${token}`}:{ }),...(body instanceof FormData?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:body instanceof FormData?body:JSON.stringify(body)});
+  const data=await response.json().catch(()=>null);
+  assert.equal(response.status,status,`${method} ${path}: ${JSON.stringify(data)}`);return data;
+}
+const login=async role=>(await api('/auth/login',null,'POST',{email:`${role}@demo.smartfleet`,password:process.env.SMARTFLEET_DEMO_PASSWORD||'DemoFleet!2026'})).token;
+const supervisor=await login('supervisor'), operator=await login('operator'), tech=await login('technician');
+const create=async risk=>api('/workflows/demo-mission',supervisor,'POST',{sourceZone:'WarehouseA-DockA1',destinationZone:'WarehouseA-DockB3',cargoType:'HTTP smoke test',weatherRisk:risk});
+const fleet=()=>api('/workflows/fleet',supervisor);
+const details=id=>api(`/workflows/${id}`,supervisor);
+const malicious=await api('/auth/register',null,'POST',{email:`smoke-${Date.now()}@example.test`,name:'Smoke Operator',password:'SmokeTest!2026',role:'Supervisor'},201);
+assert.equal(malicious.role,'Operator'); console.log('PASS: registration cannot elevate privileges');
+const healthy=await create('low'); assert.equal(healthy.status,'Executing');
+const repeated=await api(`/workflows/dispatch/${healthy.dispatchRequestId}/start`,supervisor,'POST',{});
+assert.equal(repeated.id,healthy.id); console.log('PASS: real pipeline starts once and duplicate start is idempotent');
+await api(`/workflows/${healthy.id}`,operator,'GET',undefined,403);
+await api(`/dispatch-requests/${healthy.dispatchRequestId}/status`,supervisor,'PATCH',{status:'Completed'},409);
+console.log('PASS: ownership and direct-status bypass protection');
+const pending=await create('medium'); assert.equal(pending.status,'AwaitingApproval');
+let pendingDetails=await details(pending.id);assert.equal(pendingDetails.approval.status,'Pending');
+let snapshot=await fleet();let pendingRun=snapshot.runs.find(r=>r.id===pending.id);
+assert.equal(snapshot.rovers.find(r=>r.id===pendingRun.roverId).status,'Reserved');
+await api(`/approval-requests/${pendingDetails.approval.id}/approve`,operator,'POST',{},403);
+await api(`/approval-requests/${pendingDetails.approval.id}/request-revision`,supervisor,'POST',{reviewNotes:'Choose a safer route'});
+assert.equal((await details(pending.id)).run.status,'RevisionRequested');
+const revised=await api(`/workflows/dispatch/${pending.dispatchRequestId}/start`,supervisor,'POST',{weatherRisk:'medium'});
+assert.notEqual(revised.id,pending.id);pendingDetails=await details(revised.id);
+await api(`/approval-requests/${pendingDetails.approval.id}/approve`,supervisor,'POST',{reviewNotes:'Indoor route verified'});
+await api(`/approval-requests/${pendingDetails.approval.id}/approve`,supervisor,'POST',{});
+assert.equal((await details(revised.id)).run.status,'Executing');console.log('PASS: durable approval, role gate, revision, resume and idempotent approval');
+snapshot=await fleet();const moving=snapshot.runs.find(r=>r.id===revised.id);
+const form=new FormData();form.set('RoverId',moving.roverId);form.set('SymptomCategory','MotorOverheating');form.set('Description','Smoke test motor overheating');form.set('ErrorCode','E204');
+const report=await api('/breakdown-reports',tech,'POST',form,201);
+assert.equal((await details(revised.id)).run.status,'Failed');assert.equal((await fleet()).rovers.find(r=>r.id===moving.roverId).status,'Maintenance');
+await api(`/breakdown-reports/${report.id}/status`,tech,'PATCH',{status:'Repaired'});
+assert.equal((await fleet()).rovers.find(r=>r.id===moving.roverId).status,'Idle');console.log('PASS: breakdown diagnoses, stops delivery and repair restores availability');
+const rejected=await create('high');assert.equal(rejected.status,'Failed');
+assert.ok((await details(rejected.id)).logs.some(l=>l.validationResult==='AutoRejected'));console.log('PASS: severe weather cannot dispatch a robot');
+const deadline=Date.now()+60000;
+while(Date.now()<deadline){if((await details(healthy.id)).run.status==='Completed')break;await new Promise(resolve=>setTimeout(resolve,1500));}
+assert.equal((await details(healthy.id)).run.status,'Completed');
+snapshot=await fleet();const completed=snapshot.runs.find(r=>r.id===healthy.id);assert.equal(snapshot.rovers.find(r=>r.id===completed.roverId).locationZone,'WarehouseA-DockB3');
+console.log('PASS: backend advances simulated delivery and updates destination');
+console.log('All HTTP smoke checks passed.');

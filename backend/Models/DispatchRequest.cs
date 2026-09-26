@@ -8,6 +8,7 @@ namespace SmartFleet.Backend.Models;
 public class DispatchRequest
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ConcurrencyToken { get; set; } = Guid.NewGuid();
 
     /// <summary>
     /// Foreign key identifying the Operator who created this dispatch request.

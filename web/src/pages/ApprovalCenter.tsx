@@ -1,3 +1,4 @@
+import { workflowsApi } from '../api/workflowsApi';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShieldCheck,
@@ -165,10 +166,10 @@ export const ApprovalCenter: React.FC = () => {
   const handleSimulate = async (scenario: string) => {
     setSimulating(true);
     try {
-      const output = await approvalApi.simulateEvaluation(scenario);
+      const output = await workflowsApi.demo({ sourceZone: 'WarehouseA-DockA1', destinationZone: 'WarehouseA-DockB3', cargoType: 'Safety demonstration', weatherRisk: scenario === 'auto-reject' ? 'high' : 'medium' });
       setNotification({
         type: 'success',
-        message: `Safety Guard Agent evaluated scenario "${scenario}" -> Outcome: ${output.autoOutcome} (Risk Score: ${output.riskScore}).`,
+        message: `Full workflow started: ${output.id}. Open Fleet Simulation to inspect every agent.`,
       });
       await fetchData();
     } catch (err: any) {

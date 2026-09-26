@@ -6,6 +6,7 @@ namespace SmartFleet.Backend.Models;
 public class WorkflowExecutionLog
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? WorkflowRunId { get; set; }
 
     /// <summary>
     /// Identifier of the related dispatch request.

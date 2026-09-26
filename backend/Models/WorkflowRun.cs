@@ -36,6 +36,14 @@ public class WorkflowRun
     /// Workflow execution state (e.g. Generated, InProgress, Completed, Failed).
     /// </summary>
     public string Status { get; set; } = "Generated";
+    public Guid? RoverId { get; set; }
+    public string StartZone { get; set; } = "WarehouseA-DockA1";
+    public double Progress { get; set; }
+    public string WeatherRisk { get; set; } = "unknown";
+    public bool IsDemo { get; set; }
+    public string? FailureReason { get; set; }
+    public DateTime? ReservedUntil { get; set; }
+    public Guid ConcurrencyToken { get; set; } = Guid.NewGuid();
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

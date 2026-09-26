@@ -76,6 +76,8 @@ public class RoverRepository : IRoverRepository
         var normalizedZone = zone.Trim().ToLowerInvariant();
 
         return await _context.Rovers
+            .AsNoTracking()
+            .Where(r => ! _context.BreakdownReports.Any(b => b.RoverId == r.Id && b.Status != SmartFleet.Backend.Models.Enums.BreakdownStatus.Repaired))
             .Where(r => r.Status == RoverStatus.Idle
                      && r.BatteryPercentage >= minBattery
                      && r.LocationZone.ToLower() == normalizedZone)
@@ -85,44 +87,18 @@ public class RoverRepository : IRoverRepository
 
     public async Task<Rover?> LockRoverForMissionAsync(Guid roverId, string missionId, CancellationToken cancellationToken = default)
     {
-        // Execute inside an isolated database transaction to guarantee no double-booking
-        var strategy = _context.Database.CreateExecutionStrategy();
-
-        return await strategy.ExecuteAsync(async () =>
-        {
-            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            try
-            {
-                var rover = await _context.Rovers
-                    .FirstOrDefaultAsync(r => r.Id == roverId, cancellationToken);
-
-                if (rover == null)
-                {
-                    return null;
-                }
-
-                if (rover.Status != RoverStatus.Idle)
-                {
-                    throw new InvalidOperationException($"Rover '{rover.Identifier}' is already locked or in non-idle state ({rover.Status}).");
-                }
-
-                rover.Status = RoverStatus.Dispatched;
-                rover.CurrentMissionId = missionId;
-                rover.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
-
-                return rover;
-            }
-            catch
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
-            }
-        });
+        if (!Guid.TryParse(missionId, out var dispatchId)) throw new InvalidOperationException("A real dispatch request is required.");
+        var request = await _context.DispatchRequests.AsNoTracking().FirstOrDefaultAsync(x => x.Id == dispatchId, cancellationToken)
+            ?? throw new InvalidOperationException("Dispatch request does not exist.");
+        var required = Math.Max(40, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery(request.SourceZone, request.DestinationZone));
+        var affected = await _context.Rovers.Where(r => r.Id == roverId && r.Status == RoverStatus.Idle && r.CurrentMissionId == null
+            && r.BatteryPercentage >= required
+            && !_context.BreakdownReports.Any(b => b.RoverId == r.Id && b.Status != BreakdownStatus.Repaired))
+            .ExecuteUpdateAsync(set => set.SetProperty(r => r.Status, RoverStatus.Reserved)
+                .SetProperty(r => r.CurrentMissionId, missionId).SetProperty(r => r.UpdatedAt, DateTime.UtcNow), cancellationToken);
+        if (affected == 0) return null;
+        return await _context.Rovers.AsNoTracking().SingleAsync(r => r.Id == roverId, cancellationToken);
     }
-
     public async Task UpdateAsync(Rover rover, CancellationToken cancellationToken = default)
     {
         rover.UpdatedAt = DateTime.UtcNow;

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/authApi';
 import { ErrorAlert } from '../components/Common/ErrorAlert';
 import { LoadingSpinner } from '../components/Common/LoadingSpinner';
 import { Bot, KeyRound, Mail, User as UserIcon, Shield } from 'lucide-react';
+import client from '../api/axiosClient';
 import { Role } from '../types/auth';
 
 export const Login: React.FC = () => {
@@ -13,14 +14,16 @@ export const Login: React.FC = () => {
   const { login } = useAuth();
 
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
-  const [email, setEmail] = useState<string>('supervisor@smartfleet.internal');
-  const [password, setPassword] = useState<string>('Password123!');
-  const [name, setName] = useState<string>('Sarah Connor');
-  const [role, setRole] = useState<Role>('Supervisor');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [name, setName] = useState<string>('');
+  const [, setRole] = useState<Role>('Operator');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [demo, setDemo] = useState(false);
+  useEffect(() => { client.get('/health').then(r => setDemo(r.data.demo)).catch(() => {}); }, []);
   const redirectPath = (location.state as any)?.from?.pathname || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,7 +33,7 @@ export const Login: React.FC = () => {
 
     try {
       if (isRegistering) {
-        await authApi.register({ name, email, password, role });
+        await authApi.register({ name, email, password, role: 'Operator' });
         // Automatically login after successful registration
         await login({ email, password });
       } else {
@@ -51,7 +54,7 @@ export const Login: React.FC = () => {
   const setDemoAccount = (roleChoice: Role, demoEmail: string, demoName: string) => {
     setRole(roleChoice);
     setEmail(demoEmail);
-    setPassword('Password123!');
+    setPassword('DemoFleet!2026');
     setName(demoName);
   };
 
@@ -122,13 +125,13 @@ export const Login: React.FC = () => {
                   <select
                     id="role"
                     className="form-input"
-                    value={role}
+                    value="Operator" disabled
                     onChange={(e) => setRole(e.target.value as Role)}
                     style={{ appearance: 'none' }}
                   >
                     <option value="Operator">Operator (Mobile/Dispatches)</option>
-                    <option value="Technician">Technician (Maintenance)</option>
-                    <option value="Supervisor">Supervisor (Approvals/Fleet)</option>
+
+
                   </select>
                   <Shield
                     size={16}
@@ -219,7 +222,7 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Demo Quick Selector */}
-        <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)' }}>
+        <div hidden={!demo} style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)' }}>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-faint)', textAlign: 'center', marginBottom: '0.75rem' }}>
             QUICK DEMO ROLES (CLICK TO PREFILL)
           </div>
@@ -228,7 +231,7 @@ export const Login: React.FC = () => {
               type="button"
               className="btn btn-secondary"
               style={{ fontSize: '0.75rem', padding: '0.4rem 0.25rem' }}
-              onClick={() => setDemoAccount('Operator', 'operator@smartfleet.internal', 'Alex Operator')}
+              onClick={() => setDemoAccount('Operator', 'operator@demo.smartfleet', 'Alex Operator')}
             >
               Operator
             </button>
@@ -236,7 +239,7 @@ export const Login: React.FC = () => {
               type="button"
               className="btn btn-secondary"
               style={{ fontSize: '0.75rem', padding: '0.4rem 0.25rem' }}
-              onClick={() => setDemoAccount('Technician', 'tech@smartfleet.internal', 'Marcus Tech')}
+              onClick={() => setDemoAccount('Technician', 'technician@demo.smartfleet', 'Marcus Tech')}
             >
               Technician
             </button>
@@ -244,7 +247,7 @@ export const Login: React.FC = () => {
               type="button"
               className="btn btn-secondary"
               style={{ fontSize: '0.75rem', padding: '0.4rem 0.25rem' }}
-              onClick={() => setDemoAccount('Supervisor', 'supervisor@smartfleet.internal', 'Sarah Connor')}
+              onClick={() => setDemoAccount('Supervisor', 'supervisor@demo.smartfleet', 'Sarah Connor')}
             >
               Supervisor
             </button>

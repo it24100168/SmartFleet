@@ -57,7 +57,7 @@ public class DispatchTelemetryAgentTests
         };
 
         _mockRoverRepo
-            .Setup(r => r.GetAvailableRoversInZoneAsync("WarehouseA-DockA1", 40, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAvailableRoversInZoneAsync("WarehouseA-DockA1", Math.Max(40, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery("WarehouseA-DockA1", "WarehouseA-DockB3")), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Rover> { rover });
 
         _mockWeatherService
@@ -109,7 +109,7 @@ public class DispatchTelemetryAgentTests
 
         // No rovers in zone with >= 40% battery
         _mockRoverRepo
-            .Setup(r => r.GetAvailableRoversInZoneAsync("WarehouseA-DockA1", 40, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAvailableRoversInZoneAsync("WarehouseA-DockA1", Math.Max(40, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery("WarehouseA-DockA1", "WarehouseA-DockB3")), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Rover>());
 
         // Fallback search returns the low battery rover
@@ -145,7 +145,7 @@ public class DispatchTelemetryAgentTests
         };
 
         _mockRoverRepo
-            .Setup(r => r.GetAvailableRoversInZoneAsync("WarehouseA-DockA1", 40, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAvailableRoversInZoneAsync("WarehouseA-DockA1", Math.Max(40, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery("WarehouseA-DockA1", "WarehouseA-DockB3")), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Rover> { rover });
 
         // Mock OpenWeather returning "high" risk (severe storm/rain)
@@ -179,7 +179,7 @@ public class DispatchTelemetryAgentTests
         var input = CreateSampleInput();
 
         _mockRoverRepo
-            .Setup(r => r.GetAvailableRoversInZoneAsync("WarehouseA-DockA1", 40, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAvailableRoversInZoneAsync("WarehouseA-DockA1", Math.Max(40, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery("WarehouseA-DockA1", "WarehouseA-DockB3")), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Rover>());
 
         _mockRoverRepo

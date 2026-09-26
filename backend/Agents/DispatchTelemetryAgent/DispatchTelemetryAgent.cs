@@ -41,7 +41,7 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
         // 1. Query available rovers matching zone and battery threshold against real Rover table
         var candidatesInZone = await _roverRepository.GetAvailableRoversInZoneAsync(
             input.SourceZone,
-            minBattery: SafeBatteryThreshold,
+            minBattery: Math.Max(SafeBatteryThreshold, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery(input.SourceZone, input.DestinationZone)),
             cancellationToken);
 
         Rover? selectedRover = candidatesInZone.FirstOrDefault();
@@ -75,7 +75,7 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
             }
 
             // Check if available rover has insufficient battery
-            if (fallbackCandidate.BatteryPercentage < SafeBatteryThreshold)
+            if (fallbackCandidate.BatteryPercentage < Math.Max(SafeBatteryThreshold, SmartFleet.Backend.Services.WarehouseLayout.RequiredBattery(input.SourceZone, input.DestinationZone)))
             {
                 _logger.LogWarning("Dispatch rejected: Candidate rover {RoverId} battery ({Battery}%) below safe threshold {Threshold}%.",
                     fallbackCandidate.Identifier, fallbackCandidate.BatteryPercentage, SafeBatteryThreshold);
@@ -95,7 +95,7 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
         }
 
         // 2. Query OpenWeather API for environmental weather risk along route
-        var weatherResult = await _weatherService.GetWeatherRiskAsync(
+        var weatherResult = input.WeatherAssessment ?? await _weatherService.GetWeatherRiskAsync(
             input.SourceZone,
             input.DestinationZone,
             cancellationToken);
@@ -104,7 +104,7 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
             weatherResult.WeatherRisk, weatherResult.ConditionDescription);
 
         // Deterministic validation: reject if weather risk is "high"
-        if (weatherResult.WeatherRisk == "high")
+        if (weatherResult.WeatherRisk != "low" && weatherResult.WeatherRisk != "medium")
         {
             _logger.LogWarning("Dispatch halted: High weather risk detected along transit route for {RequestId}.", input.DispatchRequestId);
             return new DispatchTelemetryAgentOutput
@@ -112,7 +112,7 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
                 DispatchRequestId = input.DispatchRequestId,
                 SelectedRoverId = selectedRover.Identifier,
                 BatteryOk = true,
-                WeatherRisk = "high",
+                WeatherRisk = weatherResult.WeatherRisk,
                 Locked = false,
                 Reason = $"High weather risk detected along transit route ({weatherResult.ConditionDescription}); dispatch halted for safety."
             };
@@ -150,6 +150,7 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
                 BatteryOk = true,
                 WeatherRisk = weatherResult.WeatherRisk, // "low" or "medium"
                 Locked = true,
+                IsSimulated = weatherResult.IsSimulatedFallback,
                 Reason = null
             };
         }

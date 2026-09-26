@@ -23,6 +23,11 @@ public class SmartFleetDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<DispatchRequest>().Property(x => x.ConcurrencyToken).IsConcurrencyToken();
+        modelBuilder.Entity<WorkflowRun>().Property(x => x.ConcurrencyToken).IsConcurrencyToken();
+        modelBuilder.Entity<ApprovalRequest>().Property(x => x.ConcurrencyToken).IsConcurrencyToken();
+        modelBuilder.Entity<ApprovalRequest>().HasIndex(x => x.WorkflowRunId).IsUnique();
+        modelBuilder.Entity<WorkflowExecutionLog>().HasIndex(x => new { x.WorkflowRunId, x.Timestamp });
 
         modelBuilder.Entity<User>(entity =>
         {
@@ -84,8 +89,7 @@ public class SmartFleetDbContext : DbContext
             entity.Property(r => r.CurrentMissionId)
                 .HasMaxLength(64);
 
-            entity.Property(r => r.Version)
-                .IsRowVersion();
+            if (Database.IsNpgsql()) entity.Property(r => r.Version).IsRowVersion(); else entity.Ignore(r => r.Version);
 
             // Seed initial fleet rovers (including RO-04 matching docs/agent-contracts.md)
             var seedTime = new DateTime(2026, 9, 18, 0, 0, 0, DateTimeKind.Utc);
@@ -477,4 +481,13 @@ public class SmartFleetDbContext : DbContext
             entity.HasIndex(w => w.Timestamp);
         });
     }
-}
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var entry in ChangeTracker.Entries().Where(e => e.State == EntityState.Modified))
+        {
+            if (entry.Entity is WorkflowRun run) run.ConcurrencyToken = Guid.NewGuid();
+            if (entry.Entity is DispatchRequest request) request.ConcurrencyToken = Guid.NewGuid();
+            if (entry.Entity is ApprovalRequest approval) approval.ConcurrencyToken = Guid.NewGuid();
+        }
+        return base.SaveChangesAsync(cancellationToken);
+    }}

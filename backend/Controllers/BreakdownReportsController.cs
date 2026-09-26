@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using SmartFleet.Backend.Data;
+using SmartFleet.Backend.Services;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
@@ -16,17 +19,21 @@ namespace SmartFleet.Backend.Controllers;
 [Authorize]
 public class BreakdownReportsController : ControllerBase
 {
+    private readonly SmartFleetDbContext _db;
+    private readonly WorkflowOrchestrator _workflow;
     private readonly IBreakdownReportRepository _breakdownReportRepository;
     private readonly IMaintenanceMechanicAgent _mechanicAgent;
     private readonly IWebHostEnvironment _environment;
     private readonly ILogger<BreakdownReportsController> _logger;
 
     public BreakdownReportsController(
+        SmartFleetDbContext db, WorkflowOrchestrator workflow,
         IBreakdownReportRepository breakdownReportRepository,
         IMaintenanceMechanicAgent mechanicAgent,
         IWebHostEnvironment environment,
         ILogger<BreakdownReportsController> logger)
     {
+        _db = db; _workflow = workflow;
         _breakdownReportRepository = breakdownReportRepository;
         _mechanicAgent = mechanicAgent;
         _environment = environment;
@@ -48,6 +55,9 @@ public class BreakdownReportsController : ControllerBase
             return Unauthorized(new { message = "User context is missing or invalid." });
         }
 
+        if (!request.RoverId.HasValue || !await _db.Rovers.AnyAsync(x => x.Id == request.RoverId, cancellationToken))
+            return BadRequest(new { message = "Select a valid rover from the fleet." });
+        if (request.Photo?.Length > 5 * 1024 * 1024) return BadRequest(new { message = "Photo must be 5 MB or smaller." });
         string? photoUrl = null;
 
         // Handle multipart photo upload
@@ -62,6 +72,17 @@ public class BreakdownReportsController : ControllerBase
             }
 
             var extension = Path.GetExtension(request.Photo.FileName).ToLowerInvariant();
+            var header = new byte[12];
+            await using (var input = request.Photo.OpenReadStream())
+            {
+                var length = await input.ReadAsync(header.AsMemory(), cancellationToken);
+                var jpeg = length >= 3 && header[0] == 0xff && header[1] == 0xd8 && header[2] == 0xff;
+                var png = length >= 8 && header.Take(8).SequenceEqual(new byte[] {137,80,78,71,13,10,26,10});
+                var webp = length >= 12 && System.Text.Encoding.ASCII.GetString(header,0,4) == "RIFF"
+                    && System.Text.Encoding.ASCII.GetString(header,8,4) == "WEBP";
+                if (!(jpeg && extension is ".jpg" or ".jpeg") && !(png && extension == ".png") && !(webp && extension == ".webp"))
+                    return BadRequest(new { message = "The attachment must contain a JPEG, PNG or WebP image matching its extension." });
+            }
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
             if (!allowedExtensions.Contains(extension))
             {
@@ -93,9 +114,13 @@ public class BreakdownReportsController : ControllerBase
             UpdatedAt = DateTime.UtcNow
         };
 
+        await using var transaction = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+        await _workflow.BlockRoverAsync(request.RoverId!.Value, cancellationToken);
+        await _workflow.DiagnoseAsync(report, cancellationToken);
         await _breakdownReportRepository.AddAsync(report, cancellationToken);
         await _breakdownReportRepository.SaveChangesAsync(cancellationToken);
 
+        await transaction.CommitAsync(cancellationToken);
         _logger.LogInformation("Breakdown report {ReportId} created by user {UserId}", report.Id, userId);
 
         var detailedReport = await _breakdownReportRepository.GetByIdWithDetailsAsync(report.Id, cancellationToken);
@@ -188,10 +213,22 @@ public class BreakdownReportsController : ControllerBase
             return NotFound(new { message = $"Breakdown report '{id}' was not found." });
         }
 
+        if (!Enum.IsDefined(request.Status)) return BadRequest(new { message = "Invalid repair status." });
+        await using var transaction = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
         report.Status = request.Status;
+        if (report.RoverId.HasValue)
+        {
+            if (request.Status != BreakdownStatus.Repaired) await _workflow.BlockRoverAsync(report.RoverId.Value, cancellationToken);
+            else if (!await _db.BreakdownReports.AnyAsync(x => x.Id != report.Id && x.RoverId == report.RoverId && x.Status != BreakdownStatus.Repaired, cancellationToken))
+            {
+                var rover = await _db.Rovers.SingleAsync(x => x.Id == report.RoverId, cancellationToken);
+                if (rover.CurrentMissionId == null) rover.Status = rover.BatteryPercentage < 40 ? RoverStatus.Charging : RoverStatus.Idle;
+            }
+        }
         report.UpdatedAt = DateTime.UtcNow;
 
         await _breakdownReportRepository.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         _logger.LogInformation("Breakdown report {ReportId} status updated to {Status}", report.Id, report.Status);
 
         return Ok(MapToResponseDto(report));
@@ -211,6 +248,7 @@ public class BreakdownReportsController : ControllerBase
             return NotFound(new { message = $"Breakdown report '{id}' was not found." });
         }
 
+        if (GetCurrentUserRole() == Role.Operator && report.ReportedById != GetCurrentUserId()) return Forbid();
         var agentInput = new MaintenanceMechanicInput
         {
             BreakdownReportId = report.Id.ToString(),

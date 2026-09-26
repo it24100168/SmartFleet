@@ -11,7 +11,7 @@ namespace SmartFleet.Backend.Controllers;
 
 [ApiController]
 [Route("api/approval-requests")]
-[Authorize]
+[Authorize(Roles = "Supervisor")]
 public class ApprovalRequestsController : ControllerBase
 {
     private readonly IApprovalService _approvalService;
@@ -107,7 +107,7 @@ public class ApprovalRequestsController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
             {
                 StatusCode = StatusCodes.Status500InternalServerError,
-                Message = ex.InnerException?.Message ?? ex.Message
+                Message = "The decision could not be saved. Refresh and retry."
             });
         }
     }
@@ -145,7 +145,7 @@ public class ApprovalRequestsController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
             {
                 StatusCode = StatusCodes.Status500InternalServerError,
-                Message = ex.InnerException?.Message ?? ex.Message
+                Message = "The decision could not be saved. Refresh and retry."
             });
         }
     }
@@ -183,7 +183,7 @@ public class ApprovalRequestsController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
             {
                 StatusCode = StatusCodes.Status500InternalServerError,
-                Message = ex.InnerException?.Message ?? ex.Message
+                Message = "The decision could not be saved. Refresh and retry."
             });
         }
     }
@@ -217,12 +217,9 @@ public class ApprovalRequestsController : ControllerBase
         [FromBody] SimulateEvaluationDto? dto,
         CancellationToken cancellationToken = default)
     {
-        var scenario = dto?.Scenario ?? "pending-approval";
-        var input = _safetyGuardAgent.CreateMockedInput(scenario, dto?.DispatchRequestId, dto?.RoverId);
-        var output = await _safetyGuardAgent.EvaluateSafetyAsync(input, cancellationToken);
-        return Ok(output);
+        await Task.CompletedTask;
+        return Conflict(new { message = "Start a dispatch workflow from Fleet Simulation. Safety uses real upstream results." });
     }
-
     private Guid? GetCurrentUserId()
     {
         var claimValue = User.FindFirstValue(ClaimTypes.NameIdentifier)

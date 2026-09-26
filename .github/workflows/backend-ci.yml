@@ -2,9 +2,9 @@ name: Backend CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "integration/fleet-workflow" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "integration/fleet-workflow" ]
 
 jobs:
   build-and-test:
@@ -27,4 +27,4 @@ jobs:
         run: dotnet build backend/backend.sln --no-restore --configuration Release
 
       - name: Run Backend Unit Tests
-        run: dotnet test backend/backend.Tests/backend.Tests.csproj --no-build --configuration Release --verbosity normal
+        run: dotnet test backend.Tests/backend.Tests.csproj --no-build --configuration Release --verbosity normal

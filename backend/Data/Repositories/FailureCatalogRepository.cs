@@ -25,6 +25,12 @@ public class FailureCatalogRepository : IFailureCatalogRepository
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
+        // Exact diagnostic codes take precedence over free text.
+        var codeKeyword = errorCode?.Trim().ToUpperInvariant() switch
+        {
+            "E204" => "motor overheating", "E301" => "wheel jam", "E401" => "sensor fault", "E102" => "battery degradation", _ => null
+        };
+        if (codeKeyword != null) return catalog.FirstOrDefault(c => c.SymptomKeyword.Equals(codeKeyword, StringComparison.OrdinalIgnoreCase));
         var descLower = (description ?? string.Empty).ToLowerInvariant();
         var catNormalized = (symptomCategory ?? string.Empty).ToLowerInvariant().Replace(" ", "").Replace("_", "").Replace("-", "");
 
