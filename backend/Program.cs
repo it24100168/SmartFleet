@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SmartFleet.Backend.Agents.MissionPlannerAgent;
 using SmartFleet.Backend.Agents.MaintenanceMechanicAgent;
+using SmartFleet.Backend.Agents.SafetyGuardAgent;
 using SmartFleet.Backend.Data;
 using SmartFleet.Backend.Data.Repositories;
 using SmartFleet.Backend.Middleware;
@@ -72,6 +73,9 @@ builder.Services.AddScoped<IMissionPlannerAgent, MissionPlannerAgent>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDispatchService, DispatchService>();
+builder.Services.AddScoped<IDispatchSyncService, DispatchSyncService>();
+builder.Services.AddScoped<IApprovalService, ApprovalService>();
+builder.Services.AddScoped<ISafetyGuardAgent, SafetyGuardAgent>();
 
 // --------------------------------------------------
 // 3. Authentication & JWT Configuration
