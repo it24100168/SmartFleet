@@ -89,7 +89,7 @@ class BreakdownService extends ChangeNotifier {
       if (errorCode != null && errorCode.trim().isNotEmpty) {
         request.fields['errorCode'] = errorCode.trim();
       }
-      if (roverId != null && roverId.trim().isNotEmpty) {
+      if (roverId.trim().isNotEmpty) {
         request.fields['roverId'] = roverId.trim();
       }
 

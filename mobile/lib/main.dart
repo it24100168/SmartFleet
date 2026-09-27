@@ -46,7 +46,6 @@ class _SmartFleetAppState extends State<SmartFleetApp> {
             primary: AppColors.primary,
             secondary: AppColors.primaryLight,
             surface: AppColors.surface,
-            background: AppColors.background,
           ),
           appBarTheme: const AppBarTheme(
             backgroundColor: AppColors.surface,

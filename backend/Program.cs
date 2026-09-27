@@ -17,6 +17,11 @@ using SmartFleet.Backend.Services.Interfaces;
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true).AddEnvironmentVariables();
 var demo = builder.Configuration.GetValue<bool>("Simulation:Enabled");
+var databaseProvider = builder.Configuration["Database:Provider"] ?? "PostgreSQL";
+if (databaseProvider is not ("PostgreSQL" or "SQLite"))
+    throw new InvalidOperationException("Database:Provider must be PostgreSQL or SQLite.");
+if (databaseProvider == "SQLite" && !demo)
+    throw new InvalidOperationException("SQLite is only supported for the explicitly enabled local demo.");
 if (demo && !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
     throw new InvalidOperationException("Simulation mode requires Development or Testing.");
 var secret = builder.Configuration["JwtSettings:Secret"];
@@ -26,7 +31,7 @@ if (string.IsNullOrWhiteSpace(secret) || Encoding.UTF8.GetByteCount(secret) < 32
     throw new InvalidOperationException("Configure JwtSettings__Secret with a private value of at least 32 bytes.");
 builder.Services.AddDbContext<SmartFleetDbContext>(options =>
 {
-    if (demo) options.UseSqlite(builder.Configuration["Simulation:ConnectionString"] ?? "Data Source=smartfleet-demo.db;Default Timeout=15");
+    if (databaseProvider == "SQLite") options.UseSqlite(builder.Configuration["Simulation:ConnectionString"] ?? "Data Source=smartfleet-demo.db;Default Timeout=15");
     else
     {
         var connection = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -80,8 +85,9 @@ if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<SmartFleetDbContext>();
-    if (demo) { await db.Database.EnsureCreatedAsync(); await DemoSeeder.SeedAsync(db, builder.Configuration); }
+    if (databaseProvider == "SQLite") await db.Database.EnsureCreatedAsync();
     else if (builder.Configuration.GetValue<bool>("Database:ApplyMigrations")) await db.Database.MigrateAsync();
+    if (demo) await DemoSeeder.SeedAsync(db, builder.Configuration);
 }
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
@@ -91,6 +97,6 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapGet("/api/health", async (SmartFleetDbContext db) => await db.Database.CanConnectAsync() ? Results.Ok(new { status = "ready", demo }) : Results.StatusCode(503));
+app.MapGet("/api/health", async (SmartFleetDbContext db) => await db.Database.CanConnectAsync() ? Results.Ok(new { status = "ready", demo, databaseProvider }) : Results.StatusCode(503));
 app.Run();
 public partial class Program { }

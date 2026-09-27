@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smartfleet_local
+      POSTGRES_PASSWORD: ${SMARTFLEET_LOCAL_PG_PASSWORD:?Use scripts/start-assessment.ps1}
+      POSTGRES_DB: smartfleet_assessment
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - assessment-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartfleet_local -d smartfleet_assessment"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  assessment-postgres:

@@ -10,6 +10,22 @@ jobs:
   build-and-test:
     name: Build & Test (.NET 8)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: smartfleet_ci
+          POSTGRES_PASSWORD: ci-ephemeral-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smartfleet_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SMARTFLEET_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=postgres;Username=smartfleet_ci;Password=ci-ephemeral-only
 
     steps:
       - name: Check out repository

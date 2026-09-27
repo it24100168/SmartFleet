@@ -71,10 +71,13 @@ OUTPUT:
 
 ## 4. Safety Guard Agent (owner: Dilukshi)
 
+Revision 27 September 2026: `priority` is populated by the orchestrator from the persisted dispatch request. `Critical` requires supervisor authorization after hard prerequisites pass, even at low numerical risk. It never overrides a hard rejection. Other priorities retain risk-based approval behavior.
+
 INPUT:
 {
   "dispatchRequestId": "d3f1-892a",
   "roverId": "RO-04",
+  "priority": "Medium",
   "missionPlanSummary": {
     "plan": [
       { "stepNumber": 1, "stepName": "Locate available rover", "status": "Completed" }

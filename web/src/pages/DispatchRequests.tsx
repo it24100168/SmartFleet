@@ -495,6 +495,7 @@ export const DispatchRequests: React.FC = () => {
                     <option value="High">High</option>
                     <option value="Critical">Critical</option>
                   </select>
+                  {priority === 'Critical' && <p className="text-muted" style={{ marginTop: 8 }}>Critical deliveries require supervisor approval before the rover moves.</p>}
                 </div>
               </div>
 

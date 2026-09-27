@@ -7,6 +7,9 @@ namespace SmartFleet.Backend.Agents.SafetyGuardAgent.DTOs;
 /// </summary>
 public class SafetyGuardInput
 {
+    // Populated from the persisted dispatch by the orchestrator, not from a client's safety override.
+    [JsonPropertyName("priority")]
+    public string Priority { get; set; } = "Medium";
     public Guid? WorkflowRunId { get; set; }
     [JsonPropertyName("dispatchRequestId")]
     public string DispatchRequestId { get; set; } = string.Empty;

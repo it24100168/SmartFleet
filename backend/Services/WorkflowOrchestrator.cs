@@ -93,7 +93,7 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
             Log(run, "FaultDiagnosis", "MaintenanceMechanicAgent", new { report.Id, report.RoverId, report.SymptomCategory }, diagnosis, "ExcludedFromFleet");
         }
         if (reports.Count == 0) Log(run, "MaintenanceCheck", "MaintenanceMechanicAgent", new { openReports = 0 }, new { reason = "No open breakdown reports" }, "Skipped");
-        var guardInput = new SafetyGuardInput { WorkflowRunId = run.Id, DispatchRequestId = requestId.ToString(), RoverId = rover?.Id.ToString() ?? "",
+        var guardInput = new SafetyGuardInput { Priority = request.Priority, WorkflowRunId = run.Id, DispatchRequestId = requestId.ToString(), RoverId = rover?.Id.ToString() ?? "",
             MissionPlanSummary = new MissionPlanSummary { Plan = plan.Plan.Select(p => new PlanStepSummary { StepNumber = p.StepNumber, StepName = p.StepName, Status = "Completed" }).ToList() },
             TelemetryResult = new TelemetryResultSummary { BatteryOk = result.BatteryOk, Locked = result.Locked, WeatherRisk = result.WeatherRisk } };
         var decision = await safety.EvaluateSafetyAsync(guardInput, ct);

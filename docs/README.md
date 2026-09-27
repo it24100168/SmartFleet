@@ -1,6 +1,8 @@
 # SmartFleet Architecture & Documentation
 
-This directory will house architectural decisions and system design artifacts for the **SmartFleet** autonomous warehouse rover management system.
+Start with [implementation phases and PostgreSQL setup](PHASES.md), the [integrated demonstration](INTEGRATED-DEMO.md), and [how the prototype works](HOW-SMARTFLEET-WORKS.md).
+
+Current architecture decision: [PostgreSQL persistence and critical approval](adr/001-assessment-persistence-and-critical-approval.md). The remaining diagrams and required architecture decisions below still need completion.
 
 ## Planned Artifacts
 - **Architecture Decision Records (ADRs)**: Documenting technical decisions, framework selections, and communication protocols.

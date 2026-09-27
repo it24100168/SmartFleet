@@ -19,11 +19,14 @@ assert.equal((await api(`/dispatch-requests/${critical.id}`)).status,'Pending');
 let snapshot;
 for(let n=0;n<25;n++){snapshot=await fleet();if(snapshot.runs.some(r=>r.dispatchRequestId===low.id&&r.status==='Executing'))break;await wait(1000);}
 const lowRun=snapshot.runs.find(r=>r.dispatchRequestId===low.id), highRun=snapshot.runs.find(r=>r.dispatchRequestId===critical.id);
-assert.equal(lowRun.status,'Executing');assert.equal(highRun.status,'Executing');assert.notEqual(lowRun.roverId,highRun.roverId);
+assert.equal(lowRun.status,'Executing');assert.equal(highRun.status,'AwaitingApproval');assert.equal(highRun.progress,0);assert.notEqual(lowRun.roverId,highRun.roverId);
 const lowDetails=await api(`/workflows/${lowRun.id}`), highDetails=await api(`/workflows/${highRun.id}`);
-const started=d=>Date.parse(d.logs.find(l=>l.stepName==='DeliveryStarted').timestamp);
-assert.ok(started(highDetails)<=started(lowDetails),'Critical is allocated before Low at the same target');
+const reserved=d=>Date.parse(d.logs.find(l=>l.stepName==='Reservation'&&l.validationResult==='Succeeded').timestamp);
+assert.ok(reserved(highDetails)<=reserved(lowDetails),'Critical is allocated before Low at the same target');
 console.log('PASS: invalid zones rejected; future target queues; equal targets schedule Critical first');
+assert.ok(highDetails.approval?.id);
+await api(`/approval-requests/${highDetails.approval.id}/approve`,'POST',{reviewNotes:'Regression: authorize critical delivery'});
+assert.equal((await fleet()).runs.find(r=>r.id===highRun.id).status,'Executing');
 await wait(5000);
 const form=new FormData();form.set('RoverId',highRun.roverId);form.set('SymptomCategory','MotorOverheating');form.set('Description','Position and recovery regression');
 const report=await api('/breakdown-reports','POST',form,201);

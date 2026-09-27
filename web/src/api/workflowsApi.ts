@@ -2,7 +2,7 @@ import client from './axiosClient';
 export interface Zone { id: string; label: string; x: number; y: number }
 export interface FleetRover { id: string; identifier: string; status: string; batteryPercentage: number; locationZone: string; currentMissionId: string | null; position: {x: number; y: number} }
 export interface Mission { id: string; dispatchRequestId: string; roverId: string | null; startZone: string; status: string; progress: number; isDemo: boolean; weatherRisk: string; failureReason: string | null; sourceZone: string; destinationZone: string; cargoType: string; createdAt: string }
-export interface Fleet { demo: boolean; serverTime: string; zones: Zone[]; rovers: FleetRover[]; runs: Mission[]; breakdowns: {id: string; roverId: string; symptomCategory: string; status: string}[] }
+export interface Fleet { demo: boolean; databaseProvider: string; serverTime: string; zones: Zone[]; rovers: FleetRover[]; runs: Mission[]; breakdowns: {id: string; roverId: string; symptomCategory: string; status: string}[] }
 export interface RunDetails { run: {id: string; status: string; planJson: string}; logs: {id: string; agentName: string; stepName: string; validationResult: string; inputJson: string; outputJson: string; timestamp: string}[]; approval: {id: string; status: string; riskScore: number; riskReason: string} | null }
 export const workflowsApi = {
   zones: async () => (await client.get<Zone[]>('/workflows/zones')).data,

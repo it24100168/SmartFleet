@@ -1,5 +1,7 @@
 # SmartFleet
 
+**Assessment phases:** [PostgreSQL setup, cross-client approval walkthrough and remaining milestones](docs/PHASES.md).
+
 **Integrated fleet demo:** Use the [current launch and presentation guide](docs/INTEGRATED-DEMO.md) for the connected workflow, animated robots, demo accounts, tests and deployment configuration. The setup sections below predate integration; follow the linked guide for current ports and secrets.
 
 SmartFleet is an internal autonomous warehouse rover management system designed for simulated factory operations, enabling Factory Operators to request cargo dispatches and log breakdowns via a Flutter mobile application, Maintenance Technicians to perform repair diagnostics, Fleet Supervisors to monitor and approve AI-flagged actions via a React web dashboard, and an integrated multi-agent AI pipeline to plan, validate, and coordinate simulated rover workflows.

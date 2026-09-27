@@ -51,7 +51,11 @@ public class WorkflowIntegrationTests
         await f.Workflow.SchedulePendingAsync(default);
         var first=await f.Db.WorkflowRuns.SingleAsync(r=>r.DispatchRequestId==critical.Id);
         var queued=await f.Db.WorkflowRuns.SingleAsync(r=>r.DispatchRequestId==low.Id);
-        Assert.Equal("Executing",first.Status); Assert.Equal("Queued",queued.Status);
+        Assert.Equal("AwaitingApproval",first.Status); Assert.Equal("Queued",queued.Status);
+        await f.Workflow.TickAsync(default); Assert.Equal(0,first.Progress);
+        var approval=await f.Db.ApprovalRequests.SingleAsync(a=>a.WorkflowRunId==first.Id);
+        await f.Workflow.DecideAsync(approval.Id,f.Supervisor.Id,"Approved","Critical delivery authorized",default);
+        Assert.Equal("Executing",first.Status);
         first.Progress=.99; first.UpdatedAt=DateTime.UtcNow.AddSeconds(-2); await f.Db.SaveChangesAsync();
         await f.Workflow.TickAsync(default); f.Db.ChangeTracker.Clear();
         await f.Workflow.SchedulePendingAsync(default);

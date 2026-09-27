@@ -9,7 +9,8 @@ import '../../models/dispatch_request_model.dart';
 import '../../services/dispatch_service.dart';
 
 class DispatchRequestScreen extends StatefulWidget {
-  const DispatchRequestScreen({super.key});
+  final DispatchService? service;
+  const DispatchRequestScreen({super.key, this.service});
 
   @override
   State<DispatchRequestScreen> createState() => _DispatchRequestScreenState();
@@ -19,15 +20,18 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Timer? _refreshTimer;
-  final DispatchService _dispatchService = DispatchService();
+  late final DispatchService _dispatchService;
 
   // Form State
   final _formKey = GlobalKey<FormState>();
-  final _sourceZoneController = TextEditingController(text: 'WarehouseA-DockA1');
-  final _destinationZoneController = TextEditingController(text: 'WarehouseA-DockB3');
+  String _sourceZone = 'WarehouseA-DockA1';
+  String _destinationZone = 'WarehouseA-DockB3';
+  List<Map<String, dynamic>> _zones = [];
+  String? _zoneError;
   String _selectedCargo = 'Fragile';
   String _selectedPriority = 'High';
-  DateTime _preferredTime = DateTime.now().add(const Duration(hours: 2));
+  DateTime _preferredTime =
+      DateTime.now().toUtc().add(const Duration(minutes: 2));
 
   // GPS State
   double? _capturedLatitude;
@@ -55,26 +59,73 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
   @override
   void initState() {
     super.initState();
+    _dispatchService = widget.service ?? DispatchService();
     _tabController = TabController(length: 2, vsync: this);
     _loadHistory();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) => _refreshHistory());
+    _loadZones();
+    _refreshTimer =
+        Timer.periodic(const Duration(seconds: 3), (_) => _refreshHistory());
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
     _tabController.dispose();
-    _sourceZoneController.dispose();
-    _destinationZoneController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadZones() async {
+    try {
+      final zones = await _dispatchService.fetchZones();
+      if (mounted) {
+        setState(() {
+          _zones = zones;
+          _zoneError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _zoneError = e.toString().replaceAll('Exception: ', ''));
+      }
+    }
+  }
+
+  String _timeLabel(DateTime value) {
+    final ist = value.toUtc().add(const Duration(hours: 5, minutes: 30));
+    String pad(int n) => n.toString().padLeft(2, '0');
+    return '${ist.year}-${pad(ist.month)}-${pad(ist.day)} ${pad(ist.hour)}:${pad(ist.minute)} IST';
+  }
+
+  Future<void> _chooseTime() async {
+    final now =
+        DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
+    final selected =
+        _preferredTime.toUtc().add(const Duration(hours: 5, minutes: 30));
+    final first = DateTime(now.year, now.month, now.day);
+    final day = await showDatePicker(
+        context: context,
+        initialDate: selected.isBefore(now)
+            ? first
+            : DateTime(selected.year, selected.month, selected.day),
+        firstDate: first,
+        lastDate: first.add(const Duration(days: 365)));
+    if (day == null || !mounted) return;
+    final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(hour: selected.hour, minute: selected.minute));
+    if (time == null || !mounted) return;
+    setState(() => _preferredTime =
+        DateTime.utc(day.year, day.month, day.day, time.hour, time.minute)
+            .subtract(const Duration(hours: 5, minutes: 30)));
   }
 
   Future<void> _refreshHistory() async {
     try {
       final list = await _dispatchService.fetchMyRequests();
       if (mounted) setState(() => _history = list);
-    } catch (_) { /* Manual refresh reports connection errors. */ }
+    } catch (_) {/* Manual refresh reports connection errors. */}
   }
+
   Future<void> _loadHistory() async {
     if (!mounted) return;
     setState(() {
@@ -108,7 +159,7 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (!mounted) return;
-      setState(() {
+        setState(() {
           _isLocating = false;
           _locationStatus = 'Location services disabled on device.';
         });
@@ -120,7 +171,7 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           if (!mounted) return;
-      setState(() {
+          setState(() {
             _isLocating = false;
             _locationStatus = 'Location permission denied by user.';
           });
@@ -130,9 +181,10 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
 
       if (permission == LocationPermission.deniedForever) {
         if (!mounted) return;
-      setState(() {
+        setState(() {
           _isLocating = false;
-          _locationStatus = 'Location permission permanently denied in settings.';
+          _locationStatus =
+              'Location permission permanently denied in settings.';
         });
         return;
       }
@@ -168,8 +220,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
 
     try {
       final newOrder = await _dispatchService.createDispatchRequest(
-        sourceZone: _sourceZoneController.text,
-        destinationZone: _destinationZoneController.text,
+        sourceZone: _sourceZone,
+        destinationZone: _destinationZone,
         cargoType: _selectedCargo,
         priority: _selectedPriority,
         preferredTimeWindow: _preferredTime,
@@ -181,7 +233,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Dispatch order #${newOrder.id.substring(0, 8)} created!'),
+          content:
+              Text('Dispatch order #${newOrder.id.substring(0, 8)} created!'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -210,7 +263,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Generating mission plan for #${item.id.substring(0, 8)}...'),
+          content: Text(
+              'Generating mission plan for #${item.id.substring(0, 8)}...'),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -218,14 +272,14 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
       final plan = await _dispatchService.generatePlan(item.id);
       _loadHistory();
 
-
       if (!mounted) return;
       _showPlanBottomSheet(plan, item.id);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Planning failed: ${e.toString().replaceAll("Exception: ", "")}'),
+          content: Text(
+              'Planning failed: ${e.toString().replaceAll("Exception: ", "")}'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -265,7 +319,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.hub_outlined, color: AppColors.primaryLight, size: 24),
+                      const Icon(Icons.hub_outlined,
+                          color: AppColors.primaryLight, size: 24),
                       const SizedBox(width: 8),
                       Text(
                         'Mission Plan (#${orderId.substring(0, 8)})',
@@ -280,7 +335,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                   const SizedBox(height: 4),
                   Text(
                     'Created: ${plan.createdAt}',
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
                   ),
                   const Divider(color: Colors.white12, height: 24),
                   Expanded(
@@ -302,7 +358,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                             children: [
                               CircleAvatar(
                                 radius: 14,
-                                backgroundColor: AppColors.primary.withOpacity(0.25),
+                                backgroundColor:
+                                    AppColors.primary.withOpacity(0.25),
                                 child: Text(
                                   '${step.stepNumber}',
                                   style: const TextStyle(
@@ -330,7 +387,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                                       Text(
                                         'Agent: ${step.assignedAgent}',
                                         style: TextStyle(
-                                          color: AppColors.primaryLight.withOpacity(0.85),
+                                          color: AppColors.primaryLight
+                                              .withOpacity(0.85),
                                           fontSize: 11,
                                         ),
                                       ),
@@ -339,7 +397,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: AppColors.warning.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(12),
@@ -400,7 +459,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
         ),
         title: const Text(
           'Dispatch Missions',
-          style: TextStyle(color: AppColors.textMain, fontWeight: FontWeight.bold),
+          style:
+              TextStyle(color: AppColors.textMain, fontWeight: FontWeight.bold),
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -446,35 +506,50 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
             ),
             const SizedBox(height: 20),
 
-            // Pickup Dock
-            TextFormField(
-              controller: _sourceZoneController,
-              style: const TextStyle(color: AppColors.textMain),
-              decoration: InputDecoration(
-                labelText: 'Source Zone (Pickup Dock)',
-                labelStyle: const TextStyle(color: AppColors.textMuted),
-                prefixIcon: const Icon(Icons.flight_takeoff, color: AppColors.primaryLight),
-                filled: true,
-                fillColor: AppColors.card,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+            if (_zoneError != null) ...[
+              Text(_zoneError!,
+                  style: const TextStyle(color: AppColors.danger)),
+              TextButton(
+                  onPressed: _loadZones, child: const Text('Retry zones')),
+            ],
+            DropdownButtonFormField<String>(
+              key: const Key('pickup-zone'),
+              value: _zones.isEmpty ? null : _sourceZone,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Pickup zone'),
+              items: _zones
+                  .map((z) => DropdownMenuItem<String>(
+                      value: z['id'] as String,
+                      child: Text(z['label'] as String)))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _sourceZone = v);
+              },
+              validator: (v) => v == null
+                  ? 'Choose a map zone'
+                  : v == _destinationZone
+                      ? 'Pickup and delivery must differ'
+                      : null,
             ),
             const SizedBox(height: 16),
-
-            // Destination Dock
-            TextFormField(
-              controller: _destinationZoneController,
-              style: const TextStyle(color: AppColors.textMain),
-              decoration: InputDecoration(
-                labelText: 'Destination Zone (Dropoff Dock)',
-                labelStyle: const TextStyle(color: AppColors.textMuted),
-                prefixIcon: const Icon(Icons.flight_land, color: AppColors.primaryLight),
-                filled: true,
-                fillColor: AppColors.card,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+            DropdownButtonFormField<String>(
+              key: const Key('delivery-zone'),
+              value: _zones.isEmpty ? null : _destinationZone,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Delivery zone'),
+              items: _zones
+                  .map((z) => DropdownMenuItem<String>(
+                      value: z['id'] as String,
+                      child: Text(z['label'] as String)))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _destinationZone = v);
+              },
+              validator: (v) => v == null
+                  ? 'Choose a map zone'
+                  : v == _sourceZone
+                      ? 'Pickup and delivery must differ'
+                      : null,
             ),
             const SizedBox(height: 16),
 
@@ -486,10 +561,12 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
               decoration: InputDecoration(
                 labelText: 'Cargo Classification',
                 labelStyle: const TextStyle(color: AppColors.textMuted),
-                prefixIcon: const Icon(Icons.inventory_2_outlined, color: AppColors.primaryLight),
+                prefixIcon: const Icon(Icons.inventory_2_outlined,
+                    color: AppColors.primaryLight),
                 filled: true,
                 fillColor: AppColors.card,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
               items: _cargoTypes
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))
@@ -500,16 +577,19 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
 
             // Priority Dropdown
             DropdownButtonFormField<String>(
+              key: const Key('dispatch-priority'),
               value: _selectedPriority,
               dropdownColor: AppColors.surface,
               style: const TextStyle(color: AppColors.textMain),
               decoration: InputDecoration(
                 labelText: 'Priority Level',
                 labelStyle: const TextStyle(color: AppColors.textMuted),
-                prefixIcon: const Icon(Icons.flag_outlined, color: AppColors.primaryLight),
+                prefixIcon: const Icon(Icons.flag_outlined,
+                    color: AppColors.primaryLight),
                 filled: true,
                 fillColor: AppColors.card,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
               items: _priorities
                   .map((p) => DropdownMenuItem(value: p, child: Text(p)))
@@ -518,6 +598,27 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
             ),
             const SizedBox(height: 20),
 
+            if (_selectedPriority == 'Critical')
+              const Text(
+                  'Critical dispatches require Supervisor approval before movement. Track the decision in My History.',
+                  style: TextStyle(color: Colors.purpleAccent)),
+            const SizedBox(height: 12),
+            Text('Delivery target: ${_timeLabel(_preferredTime)}',
+                key: const Key('delivery-target')),
+            Wrap(spacing: 8, children: [
+              TextButton.icon(
+                  onPressed: _chooseTime,
+                  icon: const Icon(Icons.schedule),
+                  label: const Text('Choose target (IST)')),
+              TextButton(
+                  onPressed: () =>
+                      setState(() => _preferredTime = DateTime.now().toUtc()),
+                  child: const Text('Next available slot')),
+            ]),
+            const Text(
+                'Scheduled departures start about 40 seconds before the target. Capacity and approval delays can affect delivery time.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            const SizedBox(height: 16),
             // GPS Location Card
             Container(
               padding: const EdgeInsets.all(16),
@@ -553,9 +654,12 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _locationStatus ?? 'Attach your current coordinates to assist rover dispatch.',
+                    _locationStatus ??
+                        'Attach your current coordinates to assist rover dispatch.',
                     style: TextStyle(
-                      color: _capturedLatitude != null ? AppColors.success : AppColors.textMuted,
+                      color: _capturedLatitude != null
+                          ? AppColors.success
+                          : AppColors.textMuted,
                       fontSize: 12,
                     ),
                   ),
@@ -590,22 +694,29 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
               width: double.infinity,
               height: 50,
               child: ElevatedButton.icon(
-                onPressed: _isSubmitting ? null : _submitRequest,
+                key: const Key('submit-dispatch'),
+                onPressed:
+                    _isSubmitting || _zones.isEmpty ? null : _submitRequest,
                 icon: _isSubmitting
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
                       )
                     : const Icon(Icons.send),
                 label: Text(
-                  _isSubmitting ? 'Submitting Order...' : 'Submit Dispatch Request',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  _isSubmitting
+                      ? 'Submitting Order...'
+                      : 'Submit Dispatch Request',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),
@@ -631,7 +742,8 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
       return EmptyWidgetView(
         icon: Icons.local_shipping_outlined,
         title: 'No Dispatch Requests',
-        description: 'You have not submitted any dispatch requests yet. Create your first request.',
+        description:
+            'You have not submitted any dispatch requests yet. Create your first request.',
         actionLabel: 'Create Request',
         onAction: () => _tabController.animateTo(0),
       );
@@ -672,11 +784,13 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: statusColor.withOpacity(0.4)),
+                          border:
+                              Border.all(color: statusColor.withOpacity(0.4)),
                         ),
                         child: Text(
                           item.status,
@@ -689,10 +803,17 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                       ),
                     ],
                   ),
+                  if (item.status == 'AwaitingApproval')
+                    const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                            'Waiting for a Supervisor to approve in the web dashboard. The rover is reserved and will not move.',
+                            style: TextStyle(color: Colors.purpleAccent))),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Icon(Icons.arrow_forward_rounded, color: AppColors.primaryLight, size: 16),
+                      const Icon(Icons.arrow_forward_rounded,
+                          color: AppColors.primaryLight, size: 16),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -711,12 +832,15 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                     children: [
                       Text(
                         'Cargo: ${item.cargoType}',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        style: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 12),
                       ),
-                      const Text(' \u2022 ', style: TextStyle(color: AppColors.textMuted)),
+                      const Text(' \u2022 ',
+                          style: TextStyle(color: AppColors.textMuted)),
                       Text(
                         'Priority: ${item.priority}',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        style: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 12),
                       ),
                     ],
                   ),
@@ -724,11 +848,13 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.location_on_outlined, size: 12, color: AppColors.textMuted),
+                        const Icon(Icons.location_on_outlined,
+                            size: 12, color: AppColors.textMuted),
                         const SizedBox(width: 4),
                         Text(
                           'GPS: ${item.latitude!.toStringAsFixed(4)}, ${item.longitude!.toStringAsFixed(4)}',
-                          style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 11),
                         ),
                       ],
                     ),
@@ -744,14 +870,16 @@ class _DispatchRequestScreenState extends State<DispatchRequestScreen>
                           label: const Text('Generate Plan'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.primaryLight,
-                            side: const BorderSide(color: AppColors.primaryLight),
+                            side:
+                                const BorderSide(color: AppColors.primaryLight),
                           ),
                         ),
                       ],
                       if (item.latestPlan != null) ...[
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
-                          onPressed: () => _showPlanBottomSheet(item.latestPlan!, item.id),
+                          onPressed: () =>
+                              _showPlanBottomSheet(item.latestPlan!, item.id),
                           icon: const Icon(Icons.checklist, size: 16),
                           label: const Text('View Plan'),
                           style: ElevatedButton.styleFrom(

@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $env:Simulation__Enabled = 'true'
+$env:Database__Provider = 'SQLite'
 Write-Host 'SmartFleet demo API: http://localhost:5078'
 Write-Host 'In a second terminal run: npm.cmd run dev --prefix web -- --host 127.0.0.1'
 Write-Host 'Demo accounts: supervisor@demo.smartfleet, operator@demo.smartfleet, technician@demo.smartfleet'

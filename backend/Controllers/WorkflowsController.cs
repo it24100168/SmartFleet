@@ -39,7 +39,7 @@ public class WorkflowsController(SmartFleetDbContext db, WorkflowOrchestrator wo
             var zone = WarehouseLayout.Zones.FirstOrDefault(z => z.Id == rover.LocationZone);
             return new(zone?.X ?? 50, zone?.Y ?? 52);
         }
-        return Ok(new { demo = workflow.Demo, serverTime = DateTime.UtcNow, zones = WarehouseLayout.Zones,
+        return Ok(new { demo = workflow.Demo, databaseProvider = db.Database.IsNpgsql() ? "PostgreSQL" : "SQLite", serverTime = DateTime.UtcNow, zones = WarehouseLayout.Zones,
             rovers = rovers.Select(x => new { x.Id, x.Identifier, x.Status, x.BatteryPercentage, x.LocationZone, x.CurrentMissionId, position = Position(x) }).ToList(),
             runs = runs.Select(x => new { x.Id, x.DispatchRequestId, x.RoverId, x.StartZone, x.Status, x.Progress, x.IsDemo, x.WeatherRisk, x.FailureReason,
                 x.ReservedUntil, x.CreatedAt, x.UpdatedAt, sourceZone = x.DispatchRequest!.SourceZone, destinationZone = x.DispatchRequest.DestinationZone, cargoType = x.DispatchRequest.CargoType }),

@@ -6,7 +6,17 @@ import '../models/dispatch_request_model.dart';
 class DispatchService {
   final ApiClient _apiClient;
 
-  DispatchService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  DispatchService({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient();
+
+  Future<List<Map<String, dynamic>>> fetchZones() async {
+    final response = await _apiClient.get('/workflows/zones');
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Could not load warehouse zones. Retry before submitting.');
+    }
+    return (jsonDecode(response.body) as List).cast<Map<String, dynamic>>();
+  }
 
   Future<List<DispatchRequestModel>> fetchMyRequests() async {
     final response = await _apiClient.get(
@@ -17,10 +27,13 @@ class DispatchService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
       final List<dynamic> items = data['items'] as List<dynamic>? ?? [];
-      return items.map((e) => DispatchRequestModel.fromJson(e as Map<String, dynamic>)).toList();
+      return items
+          .map((e) => DispatchRequestModel.fromJson(e as Map<String, dynamic>))
+          .toList();
     } else {
       final Map<String, dynamic> err = jsonDecode(response.body);
-      throw Exception(err['message'] ?? 'Failed to load dispatch requests (${response.statusCode})');
+      throw Exception(err['message'] ??
+          'Failed to load dispatch requests (${response.statusCode})');
     }
   }
 
@@ -54,7 +67,8 @@ class DispatchService {
       return DispatchRequestModel.fromJson(data);
     } else {
       final Map<String, dynamic> err = jsonDecode(response.body);
-      throw Exception(err['message'] ?? 'Failed to create dispatch request (${response.statusCode})');
+      throw Exception(err['message'] ??
+          'Failed to create dispatch request (${response.statusCode})');
     }
   }
 
@@ -70,7 +84,8 @@ class DispatchService {
       return MissionPlanModel.fromJson(data);
     } else {
       final Map<String, dynamic> err = jsonDecode(response.body);
-      throw Exception(err['message'] ?? 'Failed to generate mission plan (${response.statusCode})');
+      throw Exception(err['message'] ??
+          'Failed to generate mission plan (${response.statusCode})');
     }
   }
 }

@@ -39,6 +39,9 @@ public class SafetyGuardAgent : ISafetyGuardAgent
 
         int calculatedRisk = 0;
         var riskReasons = new List<string>();
+        var criticalDispatch = string.Equals(input.Priority, "Critical", StringComparison.OrdinalIgnoreCase);
+        if (criticalDispatch)
+            riskReasons.Add("Critical-priority dispatch requires supervisor authorization before movement");
 
         // 1. Weather risk evaluation (contract values: "low", "medium", "high")
         var weather = input.TelemetryResult?.WeatherRisk?.ToLowerInvariant() ?? "unknown";
@@ -134,7 +137,7 @@ public class SafetyGuardAgent : ISafetyGuardAgent
             autoOutcome = "AutoRejected";
             requiresApproval = false;
         }
-        else if (finalRiskScore >= 30)
+        else if (criticalDispatch || finalRiskScore >= 30)
         {
             autoOutcome = "PendingApproval";
             requiresApproval = true;
