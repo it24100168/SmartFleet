@@ -18,6 +18,38 @@ namespace SmartFleet.Backend.Tests;
 
 public class WorkflowIntegrationTests
 {
+    private static string Step(WorkflowRun run, int number) => System.Text.Json.JsonSerializer
+        .Deserialize<MissionPlannerOutput>(run.PlanJson, WorkflowOrchestrator.Json)!.Plan.Single(x => x.StepNumber == number).Status;
+
+    [Fact]
+    public async Task ChecklistPersistsApprovalPauseAndActualDecision()
+    {
+        await using var f = new Fixture(); await f.Initialize();
+        var run = await f.Start(await f.Request(), "medium");
+        Assert.Equal("Completed", Step(run, 4));
+        Assert.Equal("Completed", Step(run, 6));
+        Assert.Equal("Pending", Step(run, 7));
+        Assert.Equal(7, run.CurrentStep);
+        var approval = await f.Db.ApprovalRequests.SingleAsync();
+        using var snapshot = System.Text.Json.JsonDocument.Parse(approval.AgentSummaryJson);
+        Assert.Equal("Pending", snapshot.RootElement.GetProperty("missionPlanSummary").GetProperty("plan")[6].GetProperty("status").GetString());
+        await using (var reopened = f.NewContext())
+            Assert.Equal("Pending", Step(await reopened.WorkflowRuns.SingleAsync(x => x.Id == run.Id), 7));
+        await f.Workflow.DecideAsync(approval.Id, f.Supervisor.Id, "Approved", "Reviewed", default);
+        Assert.Equal("Completed", Step(run, 7));
+        Assert.Equal(8, run.CurrentStep);
+    }
+
+    [Fact]
+    public async Task AutomaticApprovalDoesNotInventAHumanDecision()
+    {
+        await using var f = new Fixture(); await f.Initialize();
+        var run = await f.Start(await f.Request());
+        Assert.Equal("Executing", run.Status);
+        Assert.Equal("Skipped", Step(run, 7));
+        Assert.Empty(await f.Db.ApprovalRequests.ToListAsync());
+    }
+
     [Fact]
     public void RouteStartsAtPickupWithoutAnExtraPickupLoop()
     {
@@ -130,6 +162,7 @@ public class WorkflowIntegrationTests
         var approval=await f.Db.ApprovalRequests.SingleAsync(a=>a.WorkflowRunId==run.Id);
         await f.Workflow.DecideAsync(approval.Id,f.Supervisor.Id,"Rejected","Unsafe conditions",default);
         Assert.Equal("Rejected",run.Status);Assert.Null((await f.Db.Rovers.SingleAsync(r=>r.Id==run.RoverId)).CurrentMissionId);
+        Assert.Equal("Rejected", Step(run, 7));
         await Assert.ThrowsAsync<InvalidOperationException>(()=>f.Workflow.DecideAsync(approval.Id,f.Supervisor.Id,"Approved",null,default));
     }
 
@@ -142,6 +175,7 @@ public class WorkflowIntegrationTests
         var approval=await f.Db.ApprovalRequests.SingleAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(()=>f.Workflow.DecideAsync(approval.Id,f.Supervisor.Id,"Approved",null,default));
         await f.Workflow.TickAsync(default);Assert.Equal("Failed",run.Status);Assert.Equal(ApprovalStatus.Rejected,approval.Status);
+        Assert.Equal("Expired", Step(run, 7));
     }
 
     [Fact]

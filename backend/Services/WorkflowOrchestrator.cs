@@ -84,6 +84,13 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         run.StartZone = rover?.LocationZone ?? request.SourceZone;
         request.RoverId = rover?.Id;
         run.ReservedUntil = rover == null ? null : DateTime.UtcNow.AddMinutes(10);
+        SetPlanStep(run, 1, string.IsNullOrWhiteSpace(result.SelectedRoverId) ? "Blocked" : "Completed");
+        SetPlanStep(run, 2, result.BatteryOk ? "Completed" : "Blocked");
+        SetPlanStep(run, 3, result.WeatherRisk is "low" or "medium" ? "Completed" : "Blocked");
+        SetPlanStep(run, 4, result.Locked ? "Completed" : "Blocked");
+        SetPlanStep(run, 5, result.Locked ? "Completed" : "Pending");
+        SetPlanStep(run, 6, "InProgress");
+        plan = JsonSerializer.Deserialize<MissionPlannerOutput>(run.PlanJson, Json)!;
 
         // Real open reports are diagnosed, never a fabricated fault for a weather/battery failure.
         var reports = await db.BreakdownReports.Where(x => x.Status != BreakdownStatus.Repaired).OrderBy(x => x.CreatedAt).ToListAsync(ct);
@@ -94,15 +101,16 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         }
         if (reports.Count == 0) Log(run, "MaintenanceCheck", "MaintenanceMechanicAgent", new { openReports = 0 }, new { reason = "No open breakdown reports" }, "Skipped");
         var guardInput = new SafetyGuardInput { Priority = request.Priority, WorkflowRunId = run.Id, DispatchRequestId = requestId.ToString(), RoverId = rover?.Id.ToString() ?? "",
-            MissionPlanSummary = new MissionPlanSummary { Plan = plan.Plan.Select(p => new PlanStepSummary { StepNumber = p.StepNumber, StepName = p.StepName, Status = "Completed" }).ToList() },
+            MissionPlanSummary = new MissionPlanSummary { Plan = plan.Plan.Select(p => new PlanStepSummary { StepNumber = p.StepNumber, StepName = p.StepName, Status = p.Status }).ToList() },
             TelemetryResult = new TelemetryResultSummary { BatteryOk = result.BatteryOk, Locked = result.Locked, WeatherRisk = result.WeatherRisk } };
         var decision = await safety.EvaluateSafetyAsync(guardInput, ct);
+        SetPlanStep(run, 6, decision.AutoOutcome == "AutoRejected" ? "Blocked" : "Completed");
         if (decision.AutoOutcome == "AutoApproved" && rover != null)
             BeginExecution(run, request, rover);
         else if (decision.RequiresApproval && rover != null)
-        { run.Status = "AwaitingApproval"; request.Status = DispatchRequestStatus.AwaitingApproval; run.CurrentStep = 4; }
+        { run.Status = "AwaitingApproval"; request.Status = DispatchRequestStatus.AwaitingApproval; SetPlanStep(run, 7, "Pending"); }
         else
-        { run.Status = "Failed"; run.FailureReason = result.Reason ?? decision.RiskReason; request.Status = DispatchRequestStatus.Failed; if (rover != null) Release(rover); }
+        { run.Status = "Failed"; run.FailureReason = result.Reason ?? decision.RiskReason; request.Status = DispatchRequestStatus.Failed; SetPlanStep(run, 7, "Skipped"); if (rover != null) Release(rover); }
         run.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -147,6 +155,7 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
             run.Status = decision == "Rejected" ? "Rejected" : "RevisionRequested";
             request.Status = decision == "Rejected" ? DispatchRequestStatus.Rejected : DispatchRequestStatus.RevisionRequested;
             run.ReservedUntil = null;
+            SetPlanStep(run, 7, decision == "Rejected" ? "Rejected" : "RevisionRequested");
         }
         approval.Status = target; approval.ReviewedById = actorId; approval.ReviewNotes = notes; approval.UpdatedAt = DateTime.UtcNow;
         run.UpdatedAt = request.UpdatedAt = DateTime.UtcNow;
@@ -174,6 +183,7 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         foreach (var run in runs)
         {
             if (run.Status == "Executing" && run.Progress > 0) rover.LocationZone = "StoppedOnRoute";
+            if (run.Status == "AwaitingApproval") SetPlanStep(run, 7, "Cancelled");
             run.Status = "Failed"; run.FailureReason = "Mission stopped: rover breakdown reported."; run.UpdatedAt = DateTime.UtcNow;
             var request = await db.DispatchRequests.SingleAsync(x => x.Id == run.DispatchRequestId, ct);
             request.Status = DispatchRequestStatus.Failed; request.UpdatedAt = DateTime.UtcNow;
@@ -197,6 +207,7 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
             {
                 if (run.ReservedUntil > now) continue;
                 run.Status = "Failed"; run.FailureReason = "Supervisor reservation expired.";
+                SetPlanStep(run, 7, "Expired");
                 request.Status = DispatchRequestStatus.Failed;
                 if (rover != null && rover.CurrentMissionId == request.Id.ToString()) Release(rover);
                 foreach (var approval in await db.ApprovalRequests.Where(x => x.WorkflowRunId == run.Id && x.Status == ApprovalStatus.Pending).ToListAsync(ct))
@@ -240,11 +251,22 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
 
     private void BeginExecution(WorkflowRun run, DispatchRequest request, Rover rover)
     {
-        run.Status = "Executing"; run.CurrentStep = 5; run.ReservedUntil = null; run.UpdatedAt = DateTime.UtcNow;
+        SetPlanStep(run, 7, run.Status == "AwaitingApproval" ? "Completed" : "Skipped");
+        run.Status = "Executing"; run.ReservedUntil = null; run.UpdatedAt = DateTime.UtcNow;
         request.Status = DispatchRequestStatus.InTransit; rover.Status = RoverStatus.Dispatched; rover.UpdatedAt = DateTime.UtcNow;
         Log(run, "DeliveryStarted", "MissionExecutor", new { request.SourceZone, request.DestinationZone }, new { rover.Identifier, simulatedHardware = true }, "Executing");
     }
     private static void Release(Rover rover) { rover.Status = RoverStatus.Idle; rover.CurrentMissionId = null; rover.UpdatedAt = DateTime.UtcNow; }
+    private static void SetPlanStep(WorkflowRun run, int number, string status)
+    {
+        var plan = JsonSerializer.Deserialize<MissionPlannerOutput>(run.PlanJson, Json)
+            ?? throw new InvalidOperationException("Stored mission plan is missing.");
+        var step = plan.Plan.Single(x => x.StepNumber == number);
+        step.Status = status;
+        run.PlanJson = Serialize(plan);
+        // One past the checklist means preparation is done; delivery is tracked by run.Status/progress.
+        run.CurrentStep = plan.Plan.FirstOrDefault(x => x.Status is not ("Completed" or "Skipped"))?.StepNumber ?? plan.Plan.Count + 1;
+    }
     public void Log(WorkflowRun run, string step, string agent, object input, object output, string result) => db.WorkflowExecutionLogs.Add(new WorkflowExecutionLog
     { WorkflowRunId = run.Id, DispatchRequestId = run.DispatchRequestId.ToString(), StepName = step, AgentName = agent, InputJson = Serialize(input), OutputJson = Serialize(output), ValidationResult = result });
     public static string Serialize(object value) => JsonSerializer.Serialize(value, Json);

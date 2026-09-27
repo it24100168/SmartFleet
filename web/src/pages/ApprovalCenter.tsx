@@ -1038,7 +1038,7 @@ export const ApprovalCenter: React.FC = () => {
 
                   {/* Assembled Multi-Agent Pipeline Data */}
                   <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Activity size={16} color="var(--primary-light)" /> Assembled AI Pipeline Summary
+                    <Activity size={16} color="var(--primary-light)" /> Pipeline snapshot before safety decision
                   </h3>
 
                   {/* Telemetry Status Cards */}
@@ -1120,7 +1120,7 @@ export const ApprovalCenter: React.FC = () => {
                     }}
                   >
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.65rem' }}>
-                      Mission Planner Agent Steps
+                      Checklist at evaluation time (historical snapshot)
                     </div>
                     {parsedSummary?.missionPlanSummary?.plan && parsedSummary.missionPlanSummary.plan.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
