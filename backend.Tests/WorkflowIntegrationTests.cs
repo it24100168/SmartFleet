@@ -18,6 +18,19 @@ namespace SmartFleet.Backend.Tests;
 
 public class WorkflowIntegrationTests
 {
+    [Fact]
+    public async Task TechnicalSchedulingFailuresStopAfterThreeWithReloadedState()
+    {
+        await using var f=new Fixture();await f.Initialize();var request=await f.Request();
+        await f.Workflow.RecordSchedulingFailureAsync(request.Id,"InvalidOperationException",default);
+        f.Db.ChangeTracker.Clear();
+        await f.Workflow.RecordSchedulingFailureAsync(request.Id,"InvalidOperationException",default);
+        f.Db.ChangeTracker.Clear();
+        await f.Workflow.RecordSchedulingFailureAsync(request.Id,"InvalidOperationException",default);
+        await f.Workflow.RecordSchedulingFailureAsync(request.Id,"InvalidOperationException",default);
+        Assert.Equal(DispatchRequestStatus.Failed,(await f.Db.DispatchRequests.SingleAsync(x=>x.Id==request.Id)).Status);
+        Assert.Equal(3,await f.Db.WorkflowExecutionLogs.CountAsync(x=>x.StepName=="SchedulingFailure"));
+    }
     private static string Step(WorkflowRun run, int number) => System.Text.Json.JsonSerializer
         .Deserialize<MissionPlannerOutput>(run.PlanJson, WorkflowOrchestrator.Json)!.Plan.Single(x => x.StepNumber == number).Status;
 

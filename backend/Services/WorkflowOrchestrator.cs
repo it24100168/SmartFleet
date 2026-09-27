@@ -1,4 +1,5 @@
 using System.Data;
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartFleet.Backend.Agents.DispatchTelemetryAgent;
@@ -47,14 +48,22 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         var input = new MissionPlannerInput { DispatchRequestId = request.Id.ToString(), SourceZone = request.SourceZone,
             DestinationZone = request.DestinationZone, CargoType = request.CargoType, Priority = request.Priority,
             PreferredTimeWindow = request.PreferredTimeWindow.ToString("O") };
+        var agentTimer = Stopwatch.StartNew();
         var plan = existing?.Status == "Queued"
             ? JsonSerializer.Deserialize<MissionPlannerOutput>(existing.PlanJson, Json)!
             : await planner.GeneratePlanAsync(input, ct);
+        AgentOutputValidator.Plan(plan, requestId);
         var run = existing?.Status == "Queued" ? existing : new WorkflowRun { DispatchRequestId = requestId, ObjectiveJson = Serialize(input), PlanJson = Serialize(plan),
             Status = "Planning", IsDemo = Demo, WeatherRisk = assessment.WeatherRisk };
         if (run != existing) db.WorkflowRuns.Add(run);
         await db.SaveChangesAsync(ct);
-        if (run != existing) Log(run, "MissionPlanning", "MissionPlannerAgent", input, plan, "Succeeded");
+        if (run != existing) {
+            Log(run, "MissionPlanning", "MissionPlannerAgent", input, plan, "Succeeded");
+            Log(run, "AgentTiming", "MissionPlannerAgent", new { operation = "GeneratePlan" }, new { durationMs = agentTimer.ElapsedMilliseconds, attempt = 1 }, "Succeeded");
+        }
+        if (assessment.Attempts.Count > 0)
+            Log(run, "WeatherAttempts", "DispatchTelemetryAgent", new { request.SourceZone, request.DestinationZone },
+                new { assessment.WeatherRisk, assessment.Attempts }, assessment.WeatherRisk == "unknown" ? "Unavailable" : "Succeeded");
 
         // Normal orders are scheduled for their delivery target, with a short intake window.
         // Explicit demo scenarios run immediately, but still wait for a safe available rover.
@@ -77,7 +86,10 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         var telemetryInput = new DispatchTelemetryAgentInput { DispatchRequestId = requestId.ToString(), SourceZone = request.SourceZone,
             DestinationZone = request.DestinationZone, WeatherAssessment = assessment,
             PlanSteps = plan.Plan.Select(p => new PlanStepDto { StepNumber = p.StepNumber, StepName = p.StepName, Status = p.Status }).ToList() };
+        agentTimer.Restart();
         var result = await telemetry.ExecuteAsync(telemetryInput, ct);
+        AgentOutputValidator.Telemetry(result, requestId);
+        Log(run, "AgentTiming", "DispatchTelemetryAgent", new { operation = "SelectAndReserve" }, new { durationMs = agentTimer.ElapsedMilliseconds, attempt = 1 }, "Validated");
         Log(run, "Reservation", "DispatchTelemetryAgent", new { request.SourceZone, request.DestinationZone, weather = assessment }, result, result.Locked ? "Succeeded" : "Blocked");
         var rover = result.Locked ? await db.Rovers.SingleAsync(x => x.Identifier == result.SelectedRoverId, ct) : null;
         run.RoverId = rover?.Id;
@@ -96,14 +108,19 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         var reports = await db.BreakdownReports.Where(x => x.Status != BreakdownStatus.Repaired).OrderBy(x => x.CreatedAt).ToListAsync(ct);
         foreach (var report in reports)
         {
+            agentTimer.Restart();
             var diagnosis = await DiagnoseAsync(report, ct);
+            Log(run, "AgentTiming", "MaintenanceMechanicAgent", new { operation = "Diagnose", report.Id }, new { durationMs = agentTimer.ElapsedMilliseconds, attempt = 1 }, "Succeeded");
             Log(run, "FaultDiagnosis", "MaintenanceMechanicAgent", new { report.Id, report.RoverId, report.SymptomCategory }, diagnosis, "ExcludedFromFleet");
         }
         if (reports.Count == 0) Log(run, "MaintenanceCheck", "MaintenanceMechanicAgent", new { openReports = 0 }, new { reason = "No open breakdown reports" }, "Skipped");
         var guardInput = new SafetyGuardInput { Priority = request.Priority, WorkflowRunId = run.Id, DispatchRequestId = requestId.ToString(), RoverId = rover?.Id.ToString() ?? "",
             MissionPlanSummary = new MissionPlanSummary { Plan = plan.Plan.Select(p => new PlanStepSummary { StepNumber = p.StepNumber, StepName = p.StepName, Status = p.Status }).ToList() },
             TelemetryResult = new TelemetryResultSummary { BatteryOk = result.BatteryOk, Locked = result.Locked, WeatherRisk = result.WeatherRisk } };
+        agentTimer.Restart();
         var decision = await safety.EvaluateSafetyAsync(guardInput, ct);
+        AgentOutputValidator.Safety(decision, requestId, request.Priority);
+        Log(run, "AgentTiming", "SafetyGuardAgent", new { operation = "EvaluateSafety" }, new { durationMs = agentTimer.ElapsedMilliseconds, attempt = 1 }, "Validated");
         SetPlanStep(run, 6, decision.AutoOutcome == "AutoRejected" ? "Blocked" : "Completed");
         if (decision.AutoOutcome == "AutoApproved" && rover != null)
             BeginExecution(run, request, rover);
@@ -169,6 +186,7 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
     {
         var result = await mechanic.DiagnoseAsync(new MaintenanceMechanicInput { BreakdownReportId = report.Id.ToString(),
             SymptomCategory = report.SymptomCategory, Description = report.Description, ErrorCode = report.ErrorCode }, ct);
+        AgentOutputValidator.Maintenance(result, report.Id);
         report.DiagnosisResultJson = Serialize(result);
         if (report.Status == BreakdownStatus.Reported) report.Status = result.RecommendedAction == "ScheduleRepair" ? BreakdownStatus.ScheduledForRepair : BreakdownStatus.Diagnosing;
         report.UpdatedAt = DateTime.UtcNow;
@@ -246,7 +264,37 @@ public class WorkflowOrchestrator(SmartFleetDbContext db, IMissionPlannerAgent p
         var pending = await db.DispatchRequests.AsNoTracking().Where(x => x.Status == DispatchRequestStatus.Pending
             && x.PreferredTimeWindow <= DateTime.UtcNow.AddSeconds(40) && x.CreatedAt <= DateTime.UtcNow.AddSeconds(-5)).ToListAsync(ct);
         foreach (var request in pending.OrderBy(x => x.PreferredTimeWindow).ThenByDescending(x => PriorityRank(x.Priority)).ThenBy(x => x.CreatedAt))
-            await StartAsync(request.Id, request.OperatorId, "Operator", null, ct);
+        {
+            try { await StartAsync(request.Id, request.OperatorId, "Operator", null, ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                // Start's transaction has rolled back. Never reuse tracked rolled-back reservations.
+                db.ChangeTracker.Clear();
+                await RecordSchedulingFailureAsync(request.Id, ex.GetType().Name, ct);
+            }
+        }
+    }
+
+    public async Task RecordSchedulingFailureAsync(Guid requestId, string errorCode, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        var request = await db.DispatchRequests.SingleAsync(x => x.Id == requestId, ct);
+        if (request.Status != DispatchRequestStatus.Pending) return;
+        var id = requestId.ToString();
+        var attempt = 1 + await db.WorkflowExecutionLogs.CountAsync(x => x.DispatchRequestId == id && x.StepName == "SchedulingFailure", ct);
+        var run = await db.WorkflowRuns.Where(x => x.DispatchRequestId == requestId).OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync(ct);
+        db.WorkflowExecutionLogs.Add(new WorkflowExecutionLog { DispatchRequestId = id, WorkflowRunId = run?.Id,
+            StepName = "SchedulingFailure", AgentName = "WorkflowOrchestrator", ValidationResult = attempt >= 3 ? "RetryLimitReached" : "RetryScheduled",
+            OutputJson = Serialize(new { attempt, maximumAttempts = 3, errorCode }) });
+        if (attempt >= 3)
+        {
+            request.Status = DispatchRequestStatus.Failed;
+            if (run != null && run.Status == "Queued")
+            { run.Status = "Failed"; run.FailureReason = "Scheduling stopped after three technical failures. Review the audit log before creating a new request."; run.UpdatedAt = DateTime.UtcNow; }
+        }
+        request.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
     }
 
     private void BeginExecution(WorkflowRun run, DispatchRequest request, Rover rover)

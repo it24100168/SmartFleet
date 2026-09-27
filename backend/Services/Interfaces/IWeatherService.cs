@@ -2,6 +2,7 @@ namespace SmartFleet.Backend.Services.Interfaces;
 
 public class WeatherAssessmentResult
 {
+    public List<WeatherAttempt> Attempts { get; set; } = new();
     /// <summary>
     /// Contract value: "low", "medium", or "high" exactly.
     /// </summary>
@@ -15,6 +16,8 @@ public class WeatherAssessmentResult
 
     public bool IsSimulatedFallback { get; set; }
 }
+
+public record WeatherAttempt(int Attempt, long DurationMs, string Outcome, int? HttpStatus = null);
 
 public interface IWeatherService
 {

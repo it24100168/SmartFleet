@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Diagnostics;
 using System.Text.Json;
 using SmartFleet.Backend.Services.Interfaces;
 
@@ -34,14 +35,17 @@ public class WeatherService : IWeatherService
 
         if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUR_OPENWEATHER_API_KEY")
         {
-            _logger.LogInformation("OpenWeather API key is not configured. Utilizing simulated warehouse weather assessment.");
+            _logger.LogInformation("OpenWeather API key is not configured. Dispatch weather is unavailable.");
             return UnavailableWeather();
         }
 
         // Retry logic with timeout and error handling
         const int maxRetries = 2;
+        var attempts = new List<WeatherAttempt>();
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var timer = Stopwatch.StartNew();
             try
             {
                 var requestUrl = $"https://api.openweathermap.org/data/2.5/weather?q={Uri.EscapeDataString(city)}&appid={apiKey}&units=metric";
@@ -49,34 +53,40 @@ public class WeatherService : IWeatherService
 
                 if (!response.IsSuccessStatusCode)
                 {
+                    attempts.Add(new(attempt, timer.ElapsedMilliseconds, "HttpError", (int)response.StatusCode));
                     _logger.LogWarning("OpenWeather API returned status code {StatusCode}. Attempt {Attempt} of {MaxRetries}.", response.StatusCode, attempt, maxRetries);
-                    if (attempt == maxRetries) break;
+                    if (attempt == maxRetries || (int)response.StatusCode is >= 400 and < 500 && (int)response.StatusCode != 429) break;
                     await Task.Delay(500 * attempt, cancellationToken);
                     continue;
                 }
 
                 var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cancellationToken);
-                return ParseOpenWeatherResponse(json);
+                var result = ParseOpenWeatherResponse(json);
+                attempts.Add(new(attempt, timer.ElapsedMilliseconds, "Succeeded", (int)response.StatusCode));
+                result.Attempts = attempts;
+                return result;
             }
-            catch (Exception ex) when (attempt < maxRetries)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or InvalidOperationException or KeyNotFoundException or FormatException)
             {
-                _logger.LogWarning(ex, "Transient error fetching OpenWeather API on attempt {Attempt}. Retrying...", attempt);
-                await Task.Delay(500 * attempt, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to reach OpenWeather API after {MaxRetries} attempts. Falling back to simulated weather.", maxRetries);
+                // Do not store exception messages or URLs: provider URLs contain the API key.
+                attempts.Add(new(attempt, timer.ElapsedMilliseconds, ex is OperationCanceledException ? "Timeout" : ex is HttpRequestException ? "NetworkError" : "InvalidResponse"));
+                _logger.LogWarning("Weather assessment attempt {Attempt} failed ({Outcome}).", attempt, attempts[^1].Outcome);
+                if (attempt < maxRetries) await Task.Delay(500 * attempt, cancellationToken);
             }
         }
 
-        return UnavailableWeather();
+        var unavailable = UnavailableWeather();
+        unavailable.Attempts = attempts;
+        return unavailable;
     }
 
     private static WeatherAssessmentResult ParseOpenWeatherResponse(JsonElement json)
     {
         var weatherArray = json.GetProperty("weather");
-        var conditionId = 800;
-        var description = "Clear";
+        if (weatherArray.GetArrayLength() == 0) throw new JsonException("Missing weather observation.");
+        var conditionId = 0;
+        var description = "Unknown";
 
         if (weatherArray.GetArrayLength() > 0)
         {
@@ -106,7 +116,8 @@ public class WeatherService : IWeatherService
             // Fog / Mist / Atmosphere
             >= 700 and < 800 => "medium",
             // Clear / Clouds
-            _ => "low"
+            >= 800 and <= 804 => "low",
+            _ => "unknown"
         };
 
         return new WeatherAssessmentResult

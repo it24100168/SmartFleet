@@ -20,7 +20,8 @@ class HomeScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           'SmartFleet Hub',
-          style: TextStyle(color: AppColors.textMain, fontWeight: FontWeight.bold),
+          style:
+              TextStyle(color: AppColors.textMain, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
@@ -33,8 +34,7 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
             children: [
               // User status banner
               Container(
@@ -49,7 +49,8 @@ class HomeScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 24,
                       backgroundColor: AppColors.primary.withOpacity(0.2),
-                      child: const Icon(Icons.person, color: AppColors.primaryLight),
+                      child: const Icon(Icons.person,
+                          color: AppColors.primaryLight),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -76,11 +77,13 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.primaryLight.withOpacity(0.4)),
+                        border: Border.all(
+                            color: AppColors.primaryLight.withOpacity(0.4)),
                       ),
                       child: Text(
                         user?.role.name ?? 'Operator',
@@ -108,10 +111,18 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 12),
 
               // Action card 1: Request Cargo Dispatch
+              _buildActionCard(context,
+                  title: 'Fleet telemetry',
+                  subtitle: 'Inspect every rover, battery and reservation',
+                  icon: Icons.precision_manufacturing,
+                  accentColor: AppColors.primaryLight,
+                  route: '/fleet'),
+              const SizedBox(height: 12),
               _buildActionCard(
                 context,
                 title: 'Request Cargo Dispatch',
-                subtitle: 'Submit new pallet transport request to Mission Planner',
+                subtitle:
+                    'Submit new pallet transport request to Mission Planner',
                 icon: Icons.local_shipping_outlined,
                 accentColor: AppColors.primaryLight,
                 route: '/dispatch',
@@ -122,7 +133,8 @@ class HomeScreen extends StatelessWidget {
               _buildActionCard(
                 context,
                 title: 'Report Breakdown Incident',
-                subtitle: 'Trigger emergency stop and alert Maintenance Mechanic Agent',
+                subtitle:
+                    'Trigger emergency stop and alert Maintenance Mechanic Agent',
                 icon: Icons.warning_amber_rounded,
                 accentColor: AppColors.warning,
                 route: '/breakdown',

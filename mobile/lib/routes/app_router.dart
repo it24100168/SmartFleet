@@ -5,6 +5,8 @@ import '../screens/dispatch/dispatch_request_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/login/login_screen.dart';
 import '../services/auth_service.dart';
+import '../screens/fleet/fleet_screen.dart';
+import '../models/role.dart';
 
 GoRouter createRouter(AuthService authService) {
   return GoRouter(
@@ -30,6 +32,10 @@ GoRouter createRouter(AuthService authService) {
       return null;
     },
     routes: [
+      GoRoute(
+          path: '/fleet',
+          builder: (context, state) => FleetScreen(
+              supervisor: authService.currentUser?.role == Role.supervisor)),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
