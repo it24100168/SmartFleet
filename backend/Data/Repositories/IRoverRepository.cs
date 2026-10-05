@@ -18,6 +18,10 @@ public interface IRoverRepository
 
     Task<Rover?> GetByIdentifierAsync(string identifier, CancellationToken cancellationToken = default);
 
+    Task<Rover> AddAsync(Rover rover, CancellationToken cancellationToken = default);
+
+    Task<Rover?> UpdateConfigurationAsync(Guid roverId, string identifier, string zone, CancellationToken cancellationToken = default);
+
     Task<List<Rover>> GetAvailableRoversInZoneAsync(string zone, int minBattery, CancellationToken cancellationToken = default);
 
     Task<Rover?> LockRoverForMissionAsync(Guid roverId, string missionId, CancellationToken cancellationToken = default);

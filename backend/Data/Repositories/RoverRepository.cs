@@ -73,6 +73,28 @@ public class RoverRepository : IRoverRepository
             .FirstOrDefaultAsync(r => r.Identifier.ToLower() == normalized, cancellationToken);
     }
 
+    public async Task<Rover> AddAsync(Rover rover, CancellationToken cancellationToken = default)
+    {
+        _context.Rovers.Add(rover);
+        await _context.SaveChangesAsync(cancellationToken);
+        return rover;
+    }
+
+    public async Task<Rover?> UpdateConfigurationAsync(Guid roverId, string identifier, string zone, CancellationToken cancellationToken = default)
+    {
+        // The predicate is checked by the database at update time so a newly
+        // reserved, dispatched or faulted rover cannot be moved by a stale UI.
+        var affected = await _context.Rovers
+            .Where(r => r.Id == roverId && r.Status == RoverStatus.Idle && r.CurrentMissionId == null
+                && !_context.BreakdownReports.Any(b => b.RoverId == r.Id && b.Status != BreakdownStatus.Repaired))
+            .ExecuteUpdateAsync(set => set
+                .SetProperty(r => r.Identifier, identifier)
+                .SetProperty(r => r.LocationZone, zone)
+                .SetProperty(r => r.UpdatedAt, DateTime.UtcNow), cancellationToken);
+        return affected == 0 ? null : await _context.Rovers.AsNoTracking()
+            .SingleAsync(r => r.Id == roverId, cancellationToken);
+    }
+
     public async Task<List<Rover>> GetAvailableRoversInZoneAsync(string zone, int minBattery, CancellationToken cancellationToken = default)
     {
         var normalizedZone = zone.Trim().ToLowerInvariant();

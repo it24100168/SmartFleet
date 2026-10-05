@@ -25,3 +25,8 @@ The names and ownership in this table describe the original component branches.
 Each student must separately identify and explain their own backend, database,
 React, Flutter, test and agent contributions in the individual report. Branch
 ownership alone does not prove that every student authored work in every layer.
+
+The Supervisor rover-management controls added on the final-verification
+branch register rovers and edit only the identifier and mapped zone of idle,
+unassigned, fault-free rovers. They do not directly set status, battery or
+mission ownership. The mobile fleet view remains read-only.

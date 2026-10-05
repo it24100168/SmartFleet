@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
@@ -8,6 +9,8 @@ using SmartFleet.Backend.Agents.MissionPlannerAgent;
 using SmartFleet.Backend.Agents.SafetyGuardAgent;
 using SmartFleet.Backend.Data;
 using SmartFleet.Backend.Data.Repositories;
+using SmartFleet.Backend.Controllers;
+using SmartFleet.Backend.DTOs.Rovers;
 using SmartFleet.Backend.Models;
 using SmartFleet.Backend.Models.Enums;
 using SmartFleet.Backend.Services;
@@ -28,6 +31,37 @@ public sealed class PostgresFactAttribute : FactAttribute
 // Every test creates its own random database. No existing database is reset or deleted.
 public class PostgresWorkflowTests
 {
+    [PostgresFact]
+    public async Task RoverRegistrationAndConfigurationRespectMissionState()
+    {
+        await using var fixture = new Database();
+        await fixture.Initialize();
+        await using var db = fixture.Open();
+        var controller = new RoversController(new RoverRepository(db), NullLogger<RoversController>.Instance);
+        var created = Assert.IsType<CreatedAtActionResult>(await controller.RegisterRover(
+            new RegisterRoverDto { Identifier = "RO-07", LocationZone = "WarehouseA-DockA1" }, default));
+        var rover = Assert.IsType<RoverDto>(created.Value);
+        Assert.Equal(RoverStatus.Idle, rover.Status);
+        Assert.Equal(100, rover.BatteryPercentage);
+        Assert.Equal(7, await db.Rovers.CountAsync());
+
+        Assert.IsType<ConflictObjectResult>(await controller.RegisterRover(
+            new RegisterRoverDto { Identifier = "RO-07", LocationZone = "WarehouseA-DockB3" }, default));
+        Assert.IsType<BadRequestObjectResult>(await controller.RegisterRover(
+            new RegisterRoverDto { Identifier = "RO-08", LocationZone = "Unmapped" }, default));
+
+        var updated = Assert.IsType<OkObjectResult>(await controller.UpdateRoverConfiguration(rover.Id,
+            new UpdateRoverConfigurationDto { Identifier = "RO-07", LocationZone = "WarehouseA-Aisle4" }, default));
+        Assert.Equal("WarehouseA-Aisle4", Assert.IsType<RoverDto>(updated.Value).LocationZone);
+
+        await db.Rovers.Where(r => r.Id == rover.Id).ExecuteUpdateAsync(set => set
+            .SetProperty(r => r.Status, RoverStatus.Reserved)
+            .SetProperty(r => r.CurrentMissionId, Guid.NewGuid().ToString()));
+        Assert.IsType<ConflictObjectResult>(await controller.UpdateRoverConfiguration(rover.Id,
+            new UpdateRoverConfigurationDto { Identifier = "RO-07", LocationZone = "WarehouseA-DockB3" }, default));
+        Assert.Equal("WarehouseA-Aisle4", (await db.Rovers.AsNoTracking().SingleAsync(r => r.Id == rover.Id)).LocationZone);
+    }
+
     private sealed class Database : IAsyncDisposable
     {
         private readonly string name = "smartfleet_test_" + Guid.NewGuid().ToString("N");

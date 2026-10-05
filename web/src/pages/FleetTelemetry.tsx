@@ -4,6 +4,7 @@ import { roversApi, Rover, RoverQueryParameters } from '../api/roversApi';
 import { agentsApi, DispatchTelemetryAgentInput, DispatchTelemetryAgentOutput, WeatherAssessmentResult } from '../api/agentsApi';
 import { LoadingSpinner } from '../components/Common/LoadingSpinner';
 import { ErrorAlert } from '../components/Common/ErrorAlert';
+import { useAuth } from '../context/AuthContext';
 import {
   Bot,
   Activity,
@@ -18,11 +19,23 @@ import {
   CheckCircle2,
   XCircle,
   Play,
+  Plus,
+  Pencil,
 
   Filter,
 } from 'lucide-react';
 
+const roverZones = [
+  { id: 'WarehouseA-DockA1', label: 'Receiving · A1' },
+  { id: 'WarehouseA-DockB3', label: 'Dispatch · B3' },
+  { id: 'WarehouseA-Aisle4', label: 'Storage · Aisle 4' },
+  { id: 'WarehouseA-ChargingBay', label: 'Charging' },
+  { id: 'WarehouseA-MaintenanceArea', label: 'Maintenance' },
+];
+
 export const FleetTelemetry: React.FC = () => {
+  const { user } = useAuth();
+  const isSupervisor = user?.role === 'Supervisor';
   const [notice,setNotice]=useState('');
   // Rovers State
   const [rovers, setRovers] = useState<Rover[]>([]);
@@ -56,12 +69,12 @@ export const FleetTelemetry: React.FC = () => {
   const [isExecutingAgent] = useState<boolean>(false);
   const [agentError, setAgentError] = useState<string | null>(null);
 
-  // Override / Simulation Modal State
-  const [selectedRoverForOverride, setSelectedRoverForOverride] = useState<Rover | null>(null);
-  const [overrideStatus, setOverrideStatus] = useState<string>('Idle');
-  const [overrideBattery, setOverrideBattery] = useState<number>(100);
-  const [overrideZone, setOverrideZone] = useState<string>('WarehouseA-DockA1');
-  const [isSavingOverride, setIsSavingOverride] = useState<boolean>(false);
+  const [roverToEdit, setRoverToEdit] = useState<Rover | null>(null);
+  const [isRoverFormOpen, setIsRoverFormOpen] = useState(false);
+  const [formIdentifier, setFormIdentifier] = useState('');
+  const [formZone, setFormZone] = useState(roverZones[0].id);
+  const [roverFormError, setRoverFormError] = useState('');
+  const [isSavingRover, setIsSavingRover] = useState(false);
 
   // Fetch Rovers
   const fetchRovers = useCallback(async () => {
@@ -127,25 +140,31 @@ export const FleetTelemetry: React.FC = () => {
     }
   };
 
-  // Open Override Modal
-  // Save Override
-  const handleSaveOverride = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedRoverForOverride) return;
+  const openRoverForm = (rover: Rover | null) => {
+    setRoverToEdit(rover);
+    setFormIdentifier(rover?.identifier ?? '');
+    setFormZone(rover?.locationZone ?? roverZones[0].id);
+    setRoverFormError('');
+    setIsRoverFormOpen(true);
+  };
 
-    setIsSavingOverride(true);
+  const handleSaveRover = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isSupervisor) return;
+    setIsSavingRover(true);
+    setRoverFormError('');
     try {
-      await roversApi.updateRoverSimulation(selectedRoverForOverride.id, {
-        status: overrideStatus,
-        batteryPercentage: overrideBattery,
-        locationZone: overrideZone,
-      });
-      setSelectedRoverForOverride(null);
-      fetchRovers();
+      const payload = { identifier: formIdentifier.trim().toUpperCase(), locationZone: formZone };
+      if (roverToEdit) await roversApi.updateRoverConfiguration(roverToEdit.id, payload);
+      else await roversApi.registerRover(payload);
+      setNotice(roverToEdit ? `${payload.identifier} configuration saved.` : `${payload.identifier} registered with 100% demo battery.`);
+      setIsRoverFormOpen(false);
+      setPage(1);
+      await fetchRovers();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to update rover simulation.');
+      setRoverFormError(err.response?.data?.message || 'Could not save rover configuration.');
     } finally {
-      setIsSavingOverride(false);
+      setIsSavingRover(false);
     }
   };
 
@@ -394,6 +413,11 @@ export const FleetTelemetry: React.FC = () => {
 
           {/* Filter Bar */}
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {isSupervisor && (
+              <button className="btn btn-primary" onClick={() => openRoverForm(null)}>
+                <Plus size={14} /> Register rover
+              </button>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Filter size={16} color="var(--text-muted)" />
               <select
@@ -522,14 +546,22 @@ export const FleetTelemetry: React.FC = () => {
                       )}
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
-                        onClick={() => { window.location.href = '/simulation'; }}
-                        title="Open fleet simulation controls"
-                      >
-                        <Sliders size={14} /> Simulate
-                      </button>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                        {isSupervisor && rover.status === 'Idle' && !rover.currentMissionId && (
+                          <button className="btn btn-secondary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
+                            onClick={() => openRoverForm(rover)} title="Edit idle rover identifier and mapped zone">
+                            <Pencil size={14} /> Edit
+                          </button>
+                        )}
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}
+                          onClick={() => { window.location.href = '/simulation'; }}
+                          title="Open fleet simulation controls"
+                        >
+                          <Sliders size={14} /> Simulate
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -539,8 +571,7 @@ export const FleetTelemetry: React.FC = () => {
         )}
       </div>
 
-      {/* Simulation Override Modal */}
-      {selectedRoverForOverride && (
+      {isRoverFormOpen && (
         <div
           style={{
             position: 'fixed',
@@ -556,70 +587,43 @@ export const FleetTelemetry: React.FC = () => {
         >
           <div className="glass-card" style={{ maxWidth: '440px', width: '100%', border: '1px solid var(--border-glow)' }}>
             <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>
-              Simulate Rover: {selectedRoverForOverride.identifier}
+              {roverToEdit ? `Edit ${roverToEdit.identifier}` : 'Register rover'}
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-              Modify rover telemetry parameters to test agent edge cases (e.g. low battery rejection or state recovery).
+              {roverToEdit
+                ? 'Only idle, fault-free rovers can change their identifier or mapped location.'
+                : 'New rovers start idle with 100% demo battery. Missions and battery are managed by the workflow.'}
             </p>
 
-            <form onSubmit={handleSaveOverride}>
+            <form onSubmit={handleSaveRover}>
+              {roverFormError && <ErrorAlert message={roverFormError} onDismiss={() => setRoverFormError('')} />}
               <div className="form-group">
-                <label className="form-label">Operating Status</label>
-                <select
-                  className="form-input"
-                  value={overrideStatus}
-                  onChange={(e) => setOverrideStatus(e.target.value)}
-                >
-                  <option value="Idle">Idle</option>
-                  <option value="Dispatched">Dispatched</option>
-                  <option value="Charging">Charging</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Faulted">Faulted</option>
+                <label className="form-label" htmlFor="rover-identifier">Rover identifier</label>
+                <input id="rover-identifier" className="form-input" required pattern="RO-[0-9]{2,3}"
+                  value={formIdentifier} onChange={(e) => setFormIdentifier(e.target.value.toUpperCase())}
+                  placeholder="RO-07" />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="rover-zone">Mapped location</label>
+                <select id="rover-zone" className="form-input" value={formZone} onChange={(e) => setFormZone(e.target.value)}>
+                  {roverZones.map(zone => <option key={zone.id} value={zone.id}>{zone.label}</option>)}
                 </select>
-              </div>
-
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label className="form-label">Battery Level: {overrideBattery}%</label>
-                  <span style={{ fontSize: '0.75rem', color: overrideBattery < 40 ? 'var(--danger)' : 'var(--success)' }}>
-                    {overrideBattery < 40 ? 'Below Safe Threshold (40%)' : 'Safe Operating Level'}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={overrideBattery}
-                  onChange={(e) => setOverrideBattery(parseInt(e.target.value, 10))}
-                  style={{ width: '100%', cursor: 'pointer', accentColor: getBatteryColor(overrideBattery) }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Location Zone</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={overrideZone}
-                  onChange={(e) => setOverrideZone(e.target.value)}
-                  placeholder="e.g. WarehouseA-DockA1"
-                />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setSelectedRoverForOverride(null)}
+                  onClick={() => setIsRoverFormOpen(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={isSavingOverride}
+                  disabled={isSavingRover}
                 >
-                  {isSavingOverride ? <LoadingSpinner size="sm" text="Saving..." /> : 'Apply Simulation'}
+                  {isSavingRover ? <LoadingSpinner size="sm" text="Saving..." /> : roverToEdit ? 'Save configuration' : 'Register rover'}
                 </button>
               </div>
             </form>
