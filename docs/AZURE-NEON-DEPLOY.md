@@ -2,6 +2,8 @@
 
 **Status:** prepared on 5 October 2026. Record the real URLs and successful checks below only after they exist. The team reports a Course Web deadline of **6 October 2026, 11:00 AM Sri Lanka time**.
 
+The first Azure creation attempt returned `RequestDisallowedByAzure` because the chosen region did not meet the student's subscription policy. Before retrying, open Azure **Policy → Assignments → Allowed resource deployment regions → Parameters → Allowed locations**, and choose a listed region for the resource group and Web App. If no allowed location supports App Service, use the portable `Dockerfile.api` on another .NET-capable host and document its uptime/storage limits. Do not claim a hosted URL until it answers the checks below.
+
 This uses the team's Azure for Students account, Azure Static Web Apps Free, one Azure App Service Linux .NET 8 instance, and its new Neon Free PostgreSQL database. The ASP.NET Core API is the only public path to data and agents. Open-Meteo provides real, keyless weather data for this non-commercial educational demonstration; invalid or unavailable weather blocks dispatch. [Open-Meteo's terms](https://open-meteo.com/en/terms) require non-commercial use and CC BY 4.0 attribution.
 
 ## 1. Create the resources
@@ -52,6 +54,7 @@ Install the APK on a clean Android emulator/device and check a real login. The p
 ## 4. Verify and capture evidence
 
 1. In a private/incognito browser, check `https://<api-app>.azurewebsites.net/api/health` returns `status: ready`, `databaseProvider: PostgreSQL`, `demo: false`. Check `/swagger` opens.
+   The read-only `scripts/verify-hosted.mjs` checks health, Swagger JSON, React entry/direct-route fallback and CORS once `SMARTFLEET_API_URL` and `SMARTFLEET_WEB_URL` are set to the two public HTTPS origins.
 2. Log into React as Supervisor, then create an Operator through the native app's registration flow. Confirm each role's protected screens and a denied action for the wrong role.
 3. From native Flutter, submit a **Critical** dispatch with a valid source/destination and note its request ID. Show the persisted plan, four agents/tool results, validation, and pending approval in React. Confirm the rover has **not** moved before approval. Approve as Supervisor in React, then show final status and rover movement on native Flutter; retain the same request ID in all screenshots and audit logs.
 4. Test a standard successful dispatch, a bad zone, a malformed/missing weather response safe failure, a breakdown/repair, and a simulated charging cycle. For real weather, record the provider, WMO code, decision and timestamp without pretending the weather is warehouse sensor data.

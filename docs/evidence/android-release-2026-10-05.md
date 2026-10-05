@@ -1,0 +1,5 @@
+# Android release build smoke check — 5 October 2026
+
+The Flutter release APK built successfully with `flutter build apk --release --no-pub --dart-define=API_BASE_URL=http://10.0.2.2:5078/api` after 1292 seconds. The output at `mobile/build/app/outputs/flutter-apk/app-release.apk` was **54,256,538 bytes**, SHA-256 `89328EF5F77AB99628C3C838A64A6DB6E48C8108DFEEB73D7F6EC8CA8AA67B65`. `adb install -r` returned `Success` on `emulator-5554`; Android reported process `6295` and `com.example.smartfleet_mobile/.MainActivity` as the top resumed activity after launch.
+
+This verifies a release build, installation and startup. It is **not** the final submission APK because it points to the emulator-only local API URL. Once the HTTPS hosted API URL exists, rebuild with `--dart-define=API_BASE_URL=https://<api-host>/api`, install again and check login and the cross-client workflow. The current release build is signed with the development debug key configured in `mobile/android/app/build.gradle.kts`; do not describe it as a store-signed production binary.
