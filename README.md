@@ -8,12 +8,12 @@ The [integrated architecture and cross-client workflow](docs/architecture/integr
 
 | Layer | Implementation |
 | --- | --- |
-| API | .NET 8 ASP.NET Core, EF Core/Npgsql, JWT roles, validation, Swagger in Development |
+| API | .NET 8 ASP.NET Core, EF Core/Npgsql, JWT roles, validation, Swagger in Development or when explicitly enabled for assessment |
 | Database | PostgreSQL 16 for the local assessment setup; EF migrations and seed data |
 | Web | React, TypeScript, Vite, React Router and AuthContext |
 | Mobile | Flutter/Dart, go_router, Provider, secure token storage, camera and GPS integration |
 | Agent workflow | Mission Planner, Dispatch & Telemetry, Maintenance Mechanic and Safety Guard, coordinated by a C# orchestrator |
-| Optional outside service | OpenWeather, called through the API when configured; explicit demo weather fixtures are used locally |
+| Outside weather service | Keyless Open-Meteo by default outside demo, or configured OpenWeather, called only by the API; local demo fixtures are explicitly simulated |
 
 Operator self-registration creates only Operator accounts. Technician and Supervisor access must be provisioned by trusted backend configuration or demo seed data. The API checks authorization regardless of what either client displays.
 
@@ -49,7 +49,7 @@ flutter test --no-pub
 flutter analyze --no-pub
 ```
 
-The PostgreSQL tests use `SMARTFLEET_TEST_POSTGRES`, which the launcher sets in the same PowerShell session. Without it, database tests skip. The [phases checklist](docs/PHASES.md) and [evidence files](docs/evidence) record what has actually passed and what remains. A cloud deployment, live third-party-service demonstration, complete performance/React test evidence, and final assessment artifacts are still open; a local build does not establish those requirements.
+The PostgreSQL tests use `SMARTFLEET_TEST_POSTGRES`, which the launcher sets in the same PowerShell session. Without it, database tests skip. The [phases checklist](docs/PHASES.md) and [evidence files](docs/evidence) record what has actually passed and what remains. The [native/React Critical workflow](docs/evidence/native-react-critical-workflow-2026-10-05.md) and [live Open-Meteo observation](docs/evidence/weather-live-2026-10-05.md) have local evidence. Cloud deployment, a final public-API Android APK, broader interaction tests and the group submission artifacts are still open.
 
 ## Repository map
 
