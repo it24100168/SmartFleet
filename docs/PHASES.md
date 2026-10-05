@@ -2,7 +2,7 @@
 
 This is a delivery checklist, not a claim that the assignment is fully satisfied. See the dated compliance review for the original assessment.
 
-Current milestone: phase 1 is verified locally; phase 2's workflow is implemented and verified through Flutter web and React. Native-device evidence is still outstanding. Phase 3 now includes persisted checklist states, typed output validation, weather attempts and bounded scheduling retries; see [remaining observability limits](evidence/phase-3-validation.md). Phase 4 adds mobile fleet inspection/filtering and supervisor demo charging. Phases 5–6 have [local build prerequisites and presentation preparation](LOCAL-READINESS.md); cloud deployment is deferred at the team's request.
+Current milestone: phase 1 is verified locally. Phase 2's [native Flutter Critical request → React Supervisor approval → native completion](evidence/native-react-critical-workflow-2026-10-05.md) was demonstrated on an Android emulator against PostgreSQL on 5 October 2026; a hosted repeat and presentation recording remain. Phase 3 includes persisted checklist states, typed output validation, weather attempts and bounded scheduling retries; see [remaining observability limits](evidence/phase-3-validation.md). Phase 4 adds mobile fleet inspection/filtering and supervisor demo charging. Phase 5 has a locally installed release APK, but cloud deployment is still blocked by the Azure student subscription's region policy until an allowed location or fallback host is chosen. Phase 6 has [local presentation preparation](LOCAL-READINESS.md).
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |

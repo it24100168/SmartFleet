@@ -1,7 +1,5 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using SmartFleet.Backend.Agents.SafetyGuardAgent.DTOs;
-using SmartFleet.Backend.Data;
 using SmartFleet.Backend.Models;
 using SmartFleet.Backend.Models.Enums;
 
@@ -13,12 +11,12 @@ namespace SmartFleet.Backend.Agents.SafetyGuardAgent;
 /// </summary>
 public class SafetyGuardAgent : ISafetyGuardAgent
 {
-    private readonly SmartFleetDbContext _dbContext;
+    private readonly ISafetyEvidenceStore _evidenceStore;
     private readonly ILogger<SafetyGuardAgent> _logger;
 
-    public SafetyGuardAgent(SmartFleetDbContext dbContext, ILogger<SafetyGuardAgent> logger)
+    public SafetyGuardAgent(ISafetyEvidenceStore evidenceStore, ILogger<SafetyGuardAgent> logger)
     {
-        _dbContext = dbContext;
+        _evidenceStore = evidenceStore;
         _logger = logger;
     }
 
@@ -161,9 +159,10 @@ public class SafetyGuardAgent : ISafetyGuardAgent
         var outputJson = JsonSerializer.Serialize(output);
 
         // Human-in-the-Loop Pause: If approval is required, create a pending ApprovalRequest row
-        if (requiresApproval && !(input.WorkflowRunId.HasValue && await _dbContext.ApprovalRequests.AnyAsync(a => a.WorkflowRunId == input.WorkflowRunId, cancellationToken)))
+        ApprovalRequest? approvalRequest = null;
+        if (requiresApproval && !(input.WorkflowRunId.HasValue && await _evidenceStore.HasApprovalForWorkflowAsync(input.WorkflowRunId.Value, cancellationToken)))
         {
-            var approvalRequest = new ApprovalRequest
+            approvalRequest = new ApprovalRequest
             {
                 WorkflowRunId = input.WorkflowRunId,
                 DispatchRequestId = input.DispatchRequestId,
@@ -176,7 +175,6 @@ public class SafetyGuardAgent : ISafetyGuardAgent
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _dbContext.ApprovalRequests.Add(approvalRequest);
             _logger.LogWarning(
                 "Safety Guard flagged DispatchRequest {DispatchId} for supervisor approval. RiskScore: {Score}. Reason: {Reason}",
                 input.DispatchRequestId,
@@ -197,9 +195,7 @@ public class SafetyGuardAgent : ISafetyGuardAgent
             ValidationResult = autoOutcome,
             Timestamp = DateTime.UtcNow
         };
-        _dbContext.WorkflowExecutionLogs.Add(executionLog);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _evidenceStore.SaveEvaluationAsync(approvalRequest, executionLog, cancellationToken);
 
         return output;
     }

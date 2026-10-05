@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
   Send,
@@ -10,12 +11,13 @@ import {
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
+  const { user } = useAuth();
   const navItems = [
     { path: '/', label: 'Fleet Simulation', icon: LayoutDashboard },
     { path: '/dispatch', label: 'Dispatch Requests', icon: Send },
     { path: '/telemetry', label: 'Fleet Telemetry', icon: Activity },
     { path: '/maintenance', label: 'Maintenance Queue', icon: Wrench },
-    { path: '/approvals', label: 'Approval Center', icon: ShieldCheck },
+    ...(user?.role === 'Supervisor' ? [{ path: '/approvals', label: 'Approval Center', icon: ShieldCheck }] : []),
   ];
 
   return (

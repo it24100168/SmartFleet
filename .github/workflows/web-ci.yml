@@ -1,7 +1,7 @@
 name: Web build
 on:
   push:
-    branches: [main, integration/fleet-workflow]
+    branches: [main, integration/fleet-workflow, assessment/final-readiness]
   pull_request:
     branches: [main]
 jobs:
@@ -15,6 +15,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+        working-directory: web
+      - run: npm test
         working-directory: web
       - run: npm run build
         working-directory: web

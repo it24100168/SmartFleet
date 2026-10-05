@@ -1,10 +1,7 @@
 # SmartFleet Architecture & Documentation
 
-Start with [implementation phases and PostgreSQL setup](PHASES.md), the [integrated demonstration](INTEGRATED-DEMO.md), and [how the prototype works](HOW-SMARTFLEET-WORKS.md).
+Start with [implementation phases and PostgreSQL setup](PHASES.md), the [integrated demonstration](INTEGRATED-DEMO.md), [how the prototype works](HOW-SMARTFLEET-WORKS.md), and the [full 17-page requirements audit](evidence/requirements-full-2026-10-05.md). The [Azure + Neon deployment runbook](AZURE-NEON-DEPLOY.md) gives the exact settings and evidence checks; the [hosting decision](DEPLOYMENT-PLAN.md) explains the service choices. Neither document claims a live deployment yet.
 
-Current architecture decision: [PostgreSQL persistence and critical approval](adr/001-assessment-persistence-and-critical-approval.md). The remaining diagrams and required architecture decisions below still need completion.
+Architecture decisions cover [PostgreSQL persistence and critical approval](adr/001-assessment-persistence-and-critical-approval.md), [client state](adr/002-client-state.md), [agent orchestration](adr/003-orchestration-and-state.md), [hosting preparation](adr/004-hosting-preparation.md), and the [assessment cloud topology](adr/005-assessment-cloud-deployment.md). The [integrated architecture and workflow](architecture/integrated-system.md), [database ER diagram](architecture/database-erd.md) and [agent tool-permission map](architecture/agent-tool-permissions.md) record the current implementation and its known boundaries.
 
-## Planned Artifacts
-- **Architecture Decision Records (ADRs)**: Documenting technical decisions, framework selections, and communication protocols.
-- **Entity-Relationship Diagrams (ERDs)**: Database schemas representing Users, Rovers, Dispatches, Telemetry events, and Maintenance records.
-- **Agent Interaction Flows**: Sequence and state diagrams for the multi-agent AI pipeline (Mission Planner, Dispatch & Telemetry, Maintenance Mechanic, Safety Guard).
+The audit contains a branch-based contribution matrix; each student still needs to confirm their own evidence and prepare their individual report section.

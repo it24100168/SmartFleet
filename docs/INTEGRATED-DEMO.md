@@ -44,7 +44,17 @@ flutter run --dart-define=API_BASE_URL=https://your-api.example/api
 flutter build apk --release --dart-define=API_BASE_URL=https://your-api.example/api
 ```
 
-Release builds should use HTTPS. Debug Android permits local HTTP; main Android declares networking/location permissions and iOS declares camera/photo/location usage descriptions. The breakdown service resolves a display identifier such as RO-04 to its UUID. Dispatch history refreshes every three seconds. Flutter SDK/device execution was not available in this workspace, so native build, permissions, camera and GPS still require device verification. Run `flutter pub get` to reconcile the combined lockfile before building.
+Release builds should use HTTPS. Debug Android permits local HTTP; main Android declares networking/location permissions and iOS declares camera/photo/location usage descriptions. The mobile login has Operator, Technician and Supervisor demo prefill buttons. Supervisor login unlocks role-gated fleet demo charging, but approval decisions remain on the React web dashboard; mobile has no approval screen. The breakdown service resolves a display identifier such as RO-04 to its UUID. Dispatch history refreshes every three seconds. On 4 October 2026 a Pixel 7 Android 16 emulator completed a Fragile/High dispatch from A1 to B3 with RO-03. On 5 October a [native Flutter Critical/Fragile request was approved in React and completed in Flutter](evidence/native-react-critical-workflow-2026-10-05.md) against local PostgreSQL using the installed release APK. Native camera, GPS and breakdown actions still need device verification. Run `flutter pub get` to reconcile the lockfile before building on a new machine.
+
+If this network presents an untrusted certificate for Google Storage, Flutter's [documented community mirror](https://docs.flutter.dev/community/china) worked for the Android artifact download. In the PowerShell process used for the build:
+
+```powershell
+$env:FLUTTER_STORAGE_BASE_URL='https://storage.flutter-io.cn'
+cd mobile
+flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:5078/api
+```
+
+The debug APK is at `mobile/build/app/outputs/flutter-apk/app-debug.apk`. The Android 16 emulator omitted some login and profile header glyphs under Impeller. The debug manifest now selects Flutter's alternate renderer for this local demo; the login logo/title and profile avatar/name/email were visually verified. This setting affects only debug builds; release builds still use Flutter's default renderer and need separate visual QA on the target device. Flutter marks the Impeller opt-out as deprecated, so remove the workaround after the upstream rendering issue is resolved. The mirror is community operated, so use a network-approved trust root or normal Google Storage when available. Keep TLS verification enabled.
 
 ## Validation
 
@@ -60,7 +70,7 @@ The HTTP script requires an explicitly enabled demo API at 5078 and creates labe
 
 Rotate the Neon password that was previously committed; removing it from current files does not remove it from Git history. No production database was migrated by this work.
 
-Set `Simulation__Enabled=false`, a private `JwtSettings__Secret` (at least 32 bytes), an ADO.NET PostgreSQL `ConnectionStrings__DefaultConnection`, `WeatherSettings__ApiKey`, `WeatherSettings__City`, and the deployed React origin in `Cors__AllowedOrigins__0`. Missing weather is blocked, not replaced with clear weather. Provision privileged accounts through trusted administration/database tooling; registration always creates Operator accounts.
+Set `Simulation__Enabled=false`, a private `JwtSettings__Secret` (at least 32 bytes), an ADO.NET PostgreSQL `ConnectionStrings__DefaultConnection`, `WeatherSettings__Provider=OpenMeteo` (or `OpenWeather` with a private `WeatherSettings__ApiKey`), and the deployed React origin in `Cors__AllowedOrigins__0`. Missing weather is blocked, not replaced with clear weather. Provision privileged accounts through private `Provisioning__Supervisor__*` and `Provisioning__Technician__*` app settings as described in the [Azure + Neon runbook](AZURE-NEON-DEPLOY.md); registration always creates Operator accounts.
 
 Apply the preserved branch migrations and `IntegrateFleetWorkflow` to a disposable PostgreSQL database first. The integration migration adds run progress, reservation data, correlation IDs and concurrency tokens. It does not delete existing data. Review the generated SQL and check the final schema before migrating a shared environment:
 

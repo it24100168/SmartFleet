@@ -1,0 +1,11 @@
+.git
+.demo
+**/bin
+**/obj
+**/build
+**/node_modules
+**/.dart_tool
+**/appsettings.Local.json
+**/.env
+**/.env.*
+backend/wwwroot/uploads

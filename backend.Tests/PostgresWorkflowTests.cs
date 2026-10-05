@@ -49,7 +49,7 @@ public class PostgresWorkflowTests
             new MissionPlannerAgent(NullLogger<MissionPlannerAgent>.Instance),
             new DispatchTelemetryAgent(new RoverRepository(db), new Weather(), NullLogger<DispatchTelemetryAgent>.Instance),
             new MaintenanceMechanicAgent(new FailureCatalogRepository(db), NullLogger<MaintenanceMechanicAgent>.Instance),
-            new SafetyGuardAgent(db, NullLogger<SafetyGuardAgent>.Instance), new Weather(), Config);
+            new SafetyGuardAgent(new SafetyEvidenceStore(db), NullLogger<SafetyGuardAgent>.Instance), new Weather(), Config);
         public async Task<DispatchRequest> Request(SmartFleetDbContext db, string priority = "Critical")
         {
             var owner = await db.Users.SingleAsync(x => x.Role == Role.Operator);

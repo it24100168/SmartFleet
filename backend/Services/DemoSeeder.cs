@@ -16,8 +16,6 @@ public static class DemoSeeder
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(config["Simulation:Password"] ?? "DemoFleet!2026")
             });
         }
-        var orphan = await db.Rovers.FirstOrDefaultAsync(x => x.CurrentMissionId == "d1a0-554b");
-        if (orphan != null) { orphan.Status = RoverStatus.Idle; orphan.CurrentMissionId = null; }
         await db.SaveChangesAsync();
     }
 }

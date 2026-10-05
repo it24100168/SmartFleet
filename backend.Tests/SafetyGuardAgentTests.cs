@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartFleet.Backend.Agents.SafetyGuardAgent;
 using SmartFleet.Backend.Agents.SafetyGuardAgent.DTOs;
 using SmartFleet.Backend.Data;
+using SmartFleet.Backend.Data.Repositories;
 using SmartFleet.Backend.Models.Enums;
 using Xunit;
 
@@ -25,7 +26,7 @@ public class SafetyGuardAgentTests
     {
         // Arrange
         using var dbContext = CreateInMemoryDbContext();
-        var agent = new SafetyGuardAgent(dbContext, NullLogger<SafetyGuardAgent>.Instance);
+        var agent = new SafetyGuardAgent(new SafetyEvidenceStore(dbContext), NullLogger<SafetyGuardAgent>.Instance);
 
         var input = new SafetyGuardInput
         {
@@ -74,7 +75,7 @@ public class SafetyGuardAgentTests
     {
         // Arrange
         using var dbContext = CreateInMemoryDbContext();
-        var agent = new SafetyGuardAgent(dbContext, NullLogger<SafetyGuardAgent>.Instance);
+        var agent = new SafetyGuardAgent(new SafetyEvidenceStore(dbContext), NullLogger<SafetyGuardAgent>.Instance);
 
         var input = new SafetyGuardInput
         {
@@ -129,7 +130,7 @@ public class SafetyGuardAgentTests
     {
         // Arrange
         using var dbContext = CreateInMemoryDbContext();
-        var agent = new SafetyGuardAgent(dbContext, NullLogger<SafetyGuardAgent>.Instance);
+        var agent = new SafetyGuardAgent(new SafetyEvidenceStore(dbContext), NullLogger<SafetyGuardAgent>.Instance);
 
         var input = new SafetyGuardInput
         {

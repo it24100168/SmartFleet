@@ -48,21 +48,44 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
+    return _authenticate(
+      ApiConstants.login,
+      {'email': email.trim(), 'password': password},
+      successStatus: 200,
+    );
+  }
+
+  /// Public registration always creates an Operator account on the server.
+  Future<bool> register(String name, String email, String password) async {
+    return _authenticate(
+      ApiConstants.register,
+      {
+        'name': name.trim(),
+        'email': email.trim(),
+        'password': password,
+        'role': 'Operator',
+      },
+      successStatus: 201,
+    );
+  }
+
+  Future<bool> _authenticate(
+    String endpoint,
+    Map<String, dynamic> body, {
+    required int successStatus,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
       final response = await _apiClient.post(
-        ApiConstants.login,
-        {
-          'email': email.trim(),
-          'password': password,
-        },
+        endpoint,
+        body,
         requiresAuth: false,
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == successStatus) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final authResponse = AuthResponseModel.fromJson(data);
 
@@ -80,7 +103,19 @@ class AuthService extends ChangeNotifier {
         return true;
       } else {
         final data = jsonDecode(response.body);
-        _errorMessage = data['message'] ?? 'Authentication failed (${response.statusCode})';
+        final message = data is Map<String, dynamic> ? data['message'] : null;
+        final errors = data is Map<String, dynamic> ? data['errors'] : null;
+        final firstValidationError = errors is Map<String, dynamic>
+            ? errors.values
+                .whereType<List>()
+                .expand((value) => value)
+                .firstOrNull
+            : null;
+        _errorMessage = message is String
+            ? message
+            : firstValidationError is String
+                ? firstValidationError
+                : 'Authentication failed (${response.statusCode})';
         _isLoading = false;
         notifyListeners();
         return false;

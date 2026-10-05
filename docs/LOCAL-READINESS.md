@@ -1,13 +1,14 @@
 # Local deployment and submission preparation
 
-The team selected local preparation before cloud deployment. No hosting account or cloud resource has been created by this work.
+The team has Azure for Students and a fresh Neon Free project but no verified public deployment URL yet. The first Azure resource attempt was denied by its allowed-region policy; see the [deployment runbook](AZURE-NEON-DEPLOY.md).
 
 ## Current local evidence
 
 - PostgreSQL assessment launcher and persistent volume: `scripts/start-assessment.ps1`.
 - React production build: `npm run build --prefix web`; output `web/dist`.
 - API publish command: `dotnet publish backend/backend.csproj -c Release -o .demo/publish-api`.
-- Native Android prerequisite check: the installed Flutter SDK reports **no Android SDK or Android Studio**. No APK build or emulator run can be claimed. The local Flutter SDK is 3.24.3; the repository's Android Gradle/Kotlin versions must be reconciled with a supported toolchain before building. Do not replace those versions blindly or claim a generated APK.
+- Native Android evidence: Flutter 3.47.5, Android Studio, SDK platforms 34–36, and NDK 28.2.13676358 are installed. On 4 October the Pixel 7 Android 16 emulator completed a native Fragile/High dispatch with RO-03. On 5 October the [release APK built, installed and launched](evidence/android-release-2026-10-05.md), and a [native Critical request was approved in React and completed in Flutter](evidence/native-react-critical-workflow-2026-10-05.md) against local PostgreSQL. The release APK still points to the emulator-local API and must be rebuilt for the hosted HTTPS URL. The Visual Studio desktop workload is not required for Android.
+- Upgraded-SDK checks: `flutter test --no-pub` passed six tests, with the opt-in live PostgreSQL test skipped. `flutter analyze --no-pub` reported 23 informational deprecation notices (`withOpacity` and dropdown `value`); it exited nonzero, so this is not a clean analyzer run. No Dart errors were reported. The first Android build exposed an image picker Android compile SDK mismatch; upgrading `image_picker_android` from `0.8.12+21` to `0.8.12+25` in the lockfile resolved it. Google Storage downloads on this network present an untrusted Fortinet certificate. For this build, `FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn` selected a [Flutter documented community mirror](https://docs.flutter.dev/community/china); the exact artifact URL returned HTTP 200 with a valid certificate. The override was scoped to the build process, and TLS verification remained enabled. The login logo and profile header now render on the API 36 emulator through a debug-only renderer setting; release visual QA remains open.
 - Browser rehearsal: Flutter with `--no-web-resources-cdn` on port 5180, React on 5173, API on 5078. This is not native-device evidence.
 
 ## Ten-minute presentation rehearsal
