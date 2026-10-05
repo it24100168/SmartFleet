@@ -4,6 +4,7 @@ import '../screens/breakdown/breakdown_report_screen.dart';
 import '../screens/dispatch/dispatch_request_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/login/login_screen.dart';
+import '../screens/register/register_screen.dart';
 import '../services/auth_service.dart';
 import '../screens/fleet/fleet_screen.dart';
 import '../models/role.dart';
@@ -13,19 +14,27 @@ GoRouter createRouter(AuthService authService) {
     initialLocation: '/',
     refreshListenable: authService,
     redirect: (BuildContext context, GoRouterState state) {
-      final isLoggingIn = state.matchedLocation == '/login';
+      final isPublicAuthRoute = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register';
       final isAuthenticated = authService.isAuthenticated;
 
       // While initial session is loading, remain where we are
       if (authService.isLoading) return null;
 
       // If user is not authenticated and trying to access private screens
-      if (!isAuthenticated && !isLoggingIn) {
+      if (!isAuthenticated && !isPublicAuthRoute) {
         return '/login';
       }
 
       // If user is authenticated and navigating to login, redirect to home
-      if (isAuthenticated && isLoggingIn) {
+      if (isAuthenticated && isPublicAuthRoute) {
+        return '/';
+      }
+
+      // A Technician may inspect reports and fleet state but cannot create dispatches.
+      if (isAuthenticated &&
+          authService.currentUser?.role == Role.technician &&
+          state.matchedLocation == '/dispatch') {
         return '/';
       }
 
@@ -39,6 +48,10 @@ GoRouter createRouter(AuthService authService) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: '/',

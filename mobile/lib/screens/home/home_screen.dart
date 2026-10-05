@@ -118,16 +118,18 @@ class HomeScreen extends StatelessWidget {
                   accentColor: AppColors.primaryLight,
                   route: '/fleet'),
               const SizedBox(height: 12),
-              _buildActionCard(
-                context,
-                title: 'Request Cargo Dispatch',
-                subtitle:
-                    'Submit new pallet transport request to Mission Planner',
-                icon: Icons.local_shipping_outlined,
-                accentColor: AppColors.primaryLight,
-                route: '/dispatch',
-              ),
-              const SizedBox(height: 12),
+              if (user?.role != Role.technician) ...[
+                _buildActionCard(
+                  context,
+                  title: 'Request Cargo Dispatch',
+                  subtitle:
+                      'Submit new pallet transport request to Mission Planner',
+                  icon: Icons.local_shipping_outlined,
+                  accentColor: AppColors.primaryLight,
+                  route: '/dispatch',
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Action card 2: Report Rover Breakdown
               _buildActionCard(

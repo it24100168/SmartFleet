@@ -2,7 +2,7 @@
 
 This is a delivery checklist, not a claim that the assignment is fully satisfied. See the dated compliance review for the original assessment.
 
-Current milestone: phase 1 is verified locally; phase 2's workflow is implemented and verified through Flutter web and React. Native-device evidence is still outstanding. Phase 3 now includes persisted checklist states, typed output validation, weather attempts and bounded scheduling retries; see [remaining observability limits](evidence/phase-3-validation.md). Phase 4 adds mobile fleet inspection/filtering and supervisor demo charging. Phases 5–6 have [local build prerequisites and presentation preparation](LOCAL-READINESS.md); cloud deployment is deferred at the team's request.
+Current milestone: phase 1 is verified locally; phase 2's workflow is implemented and verified through Flutter web and React. On 4 October 2026, the Android emulator also completed a native operator dispatch against PostgreSQL; the native Critical request plus React supervisor approval sequence still needs presentation evidence. Phase 3 now includes persisted checklist states, typed output validation, weather attempts and bounded scheduling retries; see [remaining observability limits](evidence/phase-3-validation.md). Phase 4 adds mobile fleet inspection/filtering and supervisor demo charging. Phase 5 has a working local debug APK, while cloud deployment remains deferred at the team's request. Phase 6 has [local presentation preparation](LOCAL-READINESS.md).
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |

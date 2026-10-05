@@ -1,0 +1,13 @@
+# Agent responsibilities and tool boundaries
+
+SmartFleet uses a custom, deterministic orchestrator. Agent calls are typed C# methods, and the application supplies fixed dependencies rather than letting an agent choose arbitrary tool names or commands. This table describes the **current code boundary**, including the places where access is broader than ideal.
+
+| Agent / caller | Input and responsibility | Allowed dependency calls | Output and side effects |
+| --- | --- | --- | --- |
+| Mission Planner | Validated dispatch objective; builds the seven-step checklist and assigned-agent labels | No repository, weather or network dependency | `MissionPlannerOutput` only. The orchestrator validates and saves the plan. |
+| Dispatch & Telemetry | Source/destination and planned work; chooses an eligible rover and checks battery/weather | `IRoverRepository.GetAvailableRoversInZoneAsync`, `GetPagedAsync`, `LockRoverForMissionAsync`; `IWeatherService.GetWeatherRiskAsync` unless an assessed weather result was supplied | `DispatchTelemetryAgentOutput`; successful lock reserves one rover. The repository performs concurrency protection. |
+| Maintenance Mechanic | Open breakdown symptom/category/code; diagnoses from known faults | `IFailureCatalogRepository.FindMatchAsync` | `MaintenanceMechanicOutput` or `NeedsManualReview`. The orchestrator saves the diagnosis and changes report status. |
+| Safety Guard | Plan summary, telemetry, priority and optional diagnosis; enforces risk rules and human pause | `ISafetyEvidenceStore.HasApprovalForWorkflowAsync` and `SaveEvaluationAsync` only | `SafetyGuardOutput`; may insert a pending approval and execution log. The implementation has no direct `DbContext` or general repository access. |
+| Workflow Orchestrator (application service, not a fifth agent) | Coordinates the above agents and mission lifecycle | Direct EF Core queries/transactions, weather precheck/recheck, output validators | Persists objective, plan, state, logs, reservation, final outcome. Fixed invocation order is a known limit of the current delegation model. |
+
+Inputs come from authenticated ASP.NET Core endpoints, not directly from React or Flutter into individual agents. The orchestrator calls `AgentOutputValidator` on plan, telemetry, maintenance and safety outputs before accepting them. Critical-priority work pauses for an authorized Supervisor decision; failed safety prerequisites cannot be overridden by approval. Agent durations and decisions are logged, but failed-call durations and individual repository timing are not complete yet. See [the pages 1–6 audit](../evidence/requirements-pages-1-6-2026-10-05.md) and [phase 3 validation](../evidence/phase-3-validation.md).

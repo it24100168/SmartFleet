@@ -1,192 +1,63 @@
 # SmartFleet
 
-**Assessment phases:** [PostgreSQL setup, cross-client approval walkthrough and remaining milestones](docs/PHASES.md).
+SmartFleet is a database-backed **warehouse rover simulation** for dispatch, fleet monitoring, breakdown diagnosis and supervisor authorization. Operators submit deliveries in Flutter; a React dashboard shows the shared fleet and lets Supervisors review high-impact requests. An ASP.NET Core API enforces the rules, stores state in PostgreSQL, and invokes four typed, deterministic agent components. The rovers and routes shown on the map are simulated; this repository does not control physical hardware.
 
-**Integrated fleet demo:** Use the [current launch and presentation guide](docs/INTEGRATED-DEMO.md) for the connected workflow, animated robots, demo accounts, tests and deployment configuration. The setup sections below predate integration; follow the linked guide for current ports and secrets.
+The [integrated architecture and cross-client workflow](docs/architecture/integrated-system.md), [database ER diagram](docs/architecture/database-erd.md) and [agent tool-permission map](docs/architecture/agent-tool-permissions.md) show how the parts connect. The [full 17-page requirements audit](docs/evidence/requirements-full-2026-10-05.md) distinguishes implemented features from remaining assessment evidence.
 
-SmartFleet is an internal autonomous warehouse rover management system designed for simulated factory operations, enabling Factory Operators to request cargo dispatches and log breakdowns via a Flutter mobile application, Maintenance Technicians to perform repair diagnostics, Fleet Supervisors to monitor and approve AI-flagged actions via a React web dashboard, and an integrated multi-agent AI pipeline to plan, validate, and coordinate simulated rover workflows.
+## Technology and roles
 
----
+| Layer | Implementation |
+| --- | --- |
+| API | .NET 8 ASP.NET Core, EF Core/Npgsql, JWT roles, validation, Swagger in Development |
+| Database | PostgreSQL 16 for the local assessment setup; EF migrations and seed data |
+| Web | React, TypeScript, Vite, React Router and AuthContext |
+| Mobile | Flutter/Dart, go_router, Provider, secure token storage, camera and GPS integration |
+| Agent workflow | Mission Planner, Dispatch & Telemetry, Maintenance Mechanic and Safety Guard, coordinated by a C# orchestrator |
+| Optional outside service | OpenWeather, called through the API when configured; explicit demo weather fixtures are used locally |
 
-## Tech Stack
+Operator self-registration creates only Operator accounts. Technician and Supervisor access must be provisioned by trusted backend configuration or demo seed data. The API checks authorization regardless of what either client displays.
 
-- **Backend**: ASP.NET Core Web API (.NET 8), C#, Entity Framework Core, Npgsql PostgreSQL provider, JWT Bearer Authentication, BCrypt password hashing, Swagger/OpenAPI.
-- **Web Frontend**: React 18, Vite, TypeScript, React Router v6, Axios, Lucide Icons, Vanilla Modern CSS design system.
-- **Mobile Client**: Flutter (Dart, null-safe), `go_router`, `flutter_secure_storage`, `http`.
-- **Database**: PostgreSQL (externally hosted, e.g., [Neon](https://neon.tech)).
-- **CI/CD**: GitHub Actions (`.github/workflows/backend-ci.yml`) targeting .NET 8.
+## Run locally with PostgreSQL
 
----
+Prerequisites: Docker Desktop, .NET 8 SDK, Node.js/npm, and Flutter plus Android Studio to run the Android app. From a PowerShell session in the repository root:
 
-## Monorepo Layout
-
-```text
-smartfleet/
-├── backend/                  # ASP.NET Core Web API (.NET 8)
-│   ├── Controllers/          # API Controllers (Auth, Role Test endpoints)
-│   ├── DTOs/                 # Data Transfer Objects (Auth, Common)
-│   ├── Services/             # Application services (Auth, Token)
-│   ├── Data/                 # EF Core DbContext, Repositories, Migrations
-│   ├── Models/               # Entities (User) and Enums (Role)
-│   ├── Middleware/           # Global Exception Handling Middleware
-│   ├── Agents/               # Placeholder for 4 planned AI Agents
-│   ├── backend.csproj        # Backend project configuration
-│   └── backend.sln           # Visual Studio solution file
-├── backend.Tests/            # xUnit automated test project
-│   ├── UnitTest1.cs          # Initial passing test for CI
-│   └── backend.Tests.csproj  # Test project file
-├── web/                      # React Web Dashboard (Vite + TypeScript)
-│   ├── src/
-│   │   ├── api/              # Axios HTTP client with JWT interceptor
-│   │   ├── context/          # React AuthContext and state management
-│   │   ├── components/       # ProtectedRoute, Layout, Common UI states
-│   │   ├── pages/            # Login, Dashboard, and placeholder screens
-│   │   └── index.css         # Modern styling and design system
-│   ├── package.json          # Web dependencies and scripts
-│   └── vite.config.ts        # Vite configuration
-├── mobile/                   # Flutter Mobile App
-│   ├── lib/
-│   │   ├── core/             # API client, secure storage, UI widgets
-│   │   ├── models/           # User, Auth, and Role models
-│   │   ├── services/         # Mobile authentication service
-│   │   ├── routes/           # go_router configuration
-│   │   └── screens/          # Login, Home, Dispatch, and Breakdown screens
-│   └── pubspec.yaml          # Flutter package manifest
-├── docs/                     # Architecture Decision Records (ADRs) & ERDs
-├── .github/workflows/        # GitHub Actions CI workflow
-├── .gitignore                # Unified monorepo ignore rules
-└── README.md                 # Project documentation and setup guide
+```powershell
+./scripts/start-assessment.ps1
 ```
 
----
+The launcher starts an isolated PostgreSQL container on port `55432`, applies migrations and starts the API at `http://localhost:5078`. It creates a local password in ignored `.demo/assessment-local.json`; keep that file with the Docker volume. The API health check is `http://localhost:5078/api/health`, and Development Swagger UI is `http://localhost:5078/swagger`. In separate terminals:
 
-## Step-by-Step Local Setup
+```powershell
+npm run dev --prefix web
+```
 
-### Prerequisites
-- [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Node.js (v18+) & npm](https://nodejs.org/)
-- [Flutter SDK (3.x+)](https://flutter.dev/docs/get-started/install)
-- An active PostgreSQL database instance (e.g. a free serverless branch on [Neon](https://neon.tech) or any hosted PostgreSQL).
+```powershell
+cd mobile
+flutter run -d emulator-5554 --dart-define=API_BASE_URL=http://10.0.2.2:5078/api
+```
 
----
+React runs at `http://localhost:5173`. See the [mobile instructions](mobile/README.md) if the emulator has another device ID or you use a physical phone. The [integrated demo guide](docs/INTEGRATED-DEMO.md) provides the demo accounts and the Critical dispatch → React approval → mobile completion walkthrough. Demo accounts, simulated charging, movement and weather are for evaluation, not production services.
 
-### 1. Backend Setup (`backend/`)
+## Verification
 
-1. **Navigate to the backend folder**:
-   ```bash
-   cd backend
-   ```
+```powershell
+./scripts/start-assessment.ps1 -DatabaseOnly
+dotnet test backend/backend.sln
+npm run build --prefix web
+cd mobile
+flutter test --no-pub
+flutter analyze --no-pub
+```
 
-2. **Configure Connection String**:
-   Copy the example environment settings:
-   ```bash
-   cp .env.example .env
-   ```
-   Update `appsettings.Development.json` (or set the environment variable `ConnectionStrings__DefaultConnection`) with your external PostgreSQL connection string (such as your Neon connection string):
-   ```json
-   {
-     "ConnectionStrings": {
-       "DefaultConnection": "Host=ep-xyz.us-east-2.aws.neon.tech;Database=neondb;Username=your_user;Password=your_password;SSL Mode=Require;Trust Server Certificate=true"
-     },
-     "JwtSettings": {
-       "Secret": "SmartFleetSuperSecretKeyForJwtAuthentication2026!",
-       "Issuer": "SmartFleetAPI",
-       "Audience": "SmartFleetClients",
-       "ExpirationMinutes": 1440
-     }
-   }
-   ```
+The PostgreSQL tests use `SMARTFLEET_TEST_POSTGRES`, which the launcher sets in the same PowerShell session. Without it, database tests skip. The [phases checklist](docs/PHASES.md) and [evidence files](docs/evidence) record what has actually passed and what remains. A cloud deployment, live third-party-service demonstration, complete performance/React test evidence, and final assessment artifacts are still open; a local build does not establish those requirements.
 
-3. **Restore and Build**:
-   ```bash
-   dotnet restore backend.sln
-   dotnet build backend.sln
-   ```
+## Repository map
 
-4. **Apply EF Core Migrations**:
-   Run the initial migration against your database:
-   ```bash
-   dotnet ef database update --project backend.csproj
-   ```
+- `backend/` and `backend.Tests/`: API, EF model/migrations, agents, workflow and tests.
+- `web/`: React management and supervisor application.
+- `mobile/`: Flutter field application and Android project.
+- `docs/`: architecture, ADRs, setup, evidence and assessment checklists.
+- `.github/workflows/`: backend and web GitHub Actions checks.
+- `scripts/`: local PostgreSQL and demo launchers.
 
-5. **Run the API**:
-   ```bash
-   dotnet run --project backend.csproj
-   ```
-   The backend API will start at `http://localhost:5000` (or `https://localhost:5001`).
-   Open Swagger UI at `http://localhost:5000/swagger` to inspect endpoints and test authentication.
-
-6. **Run Backend Tests**:
-   ```bash
-   dotnet test ../backend.Tests/backend.Tests.csproj
-   ```
-
----
-
-### 2. Web Setup (`web/`)
-
-1. **Navigate to the web folder**:
-   ```bash
-   cd web
-   ```
-
-2. **Configure Environment Variables**:
-   Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-   Ensure `VITE_API_BASE_URL` points to your running backend:
-   ```env
-   VITE_API_BASE_URL=http://localhost:5000/api
-   ```
-
-3. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-
-4. **Start Vite Development Server**:
-   ```bash
-   npm run dev
-   ```
-   Open `http://localhost:5173` in your browser. The app will automatically redirect unauthenticated users to `/login`.
-
----
-
-### 3. Mobile Setup (`mobile/`)
-
-1. **Navigate to the mobile folder**:
-   ```bash
-   cd mobile
-   ```
-
-2. **Configure Backend URL**:
-   Inspect `lib/core/constants/api_constants.dart` and update `baseUrl`:
-   - Android Emulator: `http://10.0.2.2:5000/api`
-   - iOS Simulator: `http://localhost:5000/api`
-   - Physical Device: `http://<YOUR_LOCAL_IP>:5000/api`
-   - Chrome / Web: `http://localhost:5000/api`
-
-3. **Fetch Dependencies**:
-   ```bash
-   flutter pub get
-   ```
-
-4. **Run Application**:
-   ```bash
-   # Run on connected device or emulator
-   flutter run
-
-   # Or run directly in Chrome for testing
-   flutter run -d chrome
-   ```
-
----
-
-## Multi-Agent AI Pipeline (Planned)
-
-The `backend/Agents/` directory will host the 4 autonomous agents:
-1. **Mission Planner Agent**: Analyzes pending dispatch requests, schedules rover batches, and optimizes paths.
-2. **Dispatch & Telemetry Agent**: Monitors real-time rover telemetry, battery status, and execution states.
-3. **Maintenance Mechanic Agent**: Analyzes breakdown reports and sensor anomalies to prescribe diagnostic workflows.
-4. **Safety Guard Agent**: Enforces warehouse safety protocols and escalates flagged exceptions to the Supervisor dashboard for manual override.
+Configuration secrets belong in environment variables or local ignored files. Do not commit database passwords, JWT signing keys or third-party API keys.

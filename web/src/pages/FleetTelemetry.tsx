@@ -204,7 +204,10 @@ export const FleetTelemetry: React.FC = () => {
         <div>
           <h1 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>Fleet Telemetry & Dispatch Agent</h1>
           <p style={{ color: 'var(--text-muted)' }}>
-            Real-time rover status, battery monitoring, OpenWeather transit risk analysis, and candidate rover locking.
+            Real-time rover status, battery monitoring, weather risk analysis, and candidate rover locking.
+          </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.35rem' }}>
+            Hosted weather data: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> (CC BY 4.0). Local simulation uses explicit fixtures.
           </p>
         </div>
 

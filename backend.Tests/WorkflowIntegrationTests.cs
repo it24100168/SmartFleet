@@ -135,7 +135,7 @@ public class WorkflowIntegrationTests
             await Connection.OpenAsync();
             Db = NewContext(); await Db.Database.EnsureCreatedAsync();
             Db.Users.Add(Supervisor); await Db.SaveChangesAsync();
-            Safety = new SafetyGuardAgent(Db, NullLogger<SafetyGuardAgent>.Instance);
+            Safety = new SafetyGuardAgent(new SafetyEvidenceStore(Db), NullLogger<SafetyGuardAgent>.Instance);
             Workflow = new WorkflowOrchestrator(Db, new MissionPlannerAgent(NullLogger<MissionPlannerAgent>.Instance),
                 new DispatchTelemetryAgent(new RoverRepository(Db), new Weather(), NullLogger<DispatchTelemetryAgent>.Instance),
                 new MaintenanceMechanicAgent(new FailureCatalogRepository(Db), NullLogger<MaintenanceMechanicAgent>.Instance),

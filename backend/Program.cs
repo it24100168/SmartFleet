@@ -45,6 +45,7 @@ builder.Services.AddScoped<IDispatchRequestRepository, DispatchRequestRepository
 builder.Services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
 builder.Services.AddScoped<IBreakdownReportRepository, BreakdownReportRepository>();
 builder.Services.AddScoped<IFailureCatalogRepository, FailureCatalogRepository>();
+builder.Services.AddScoped<ISafetyEvidenceStore, SafetyEvidenceStore>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDispatchService, DispatchService>();
@@ -87,10 +88,13 @@ if (!app.Environment.IsEnvironment("Testing"))
     var db = scope.ServiceProvider.GetRequiredService<SmartFleetDbContext>();
     if (databaseProvider == "SQLite") await db.Database.EnsureCreatedAsync();
     else if (builder.Configuration.GetValue<bool>("Database:ApplyMigrations")) await db.Database.MigrateAsync();
+    await FleetBootstrap.RepairLegacySeedAsync(db);
     if (demo) await DemoSeeder.SeedAsync(db, builder.Configuration);
+    else await PrivilegedAccountProvisioner.SeedAsync(db, builder.Configuration);
 }
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
+if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Swagger:Enabled"))
+{ app.UseSwagger(); app.UseSwaggerUI(); }
 app.UseCors();
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads", "breakdowns"));
 app.UseStaticFiles();

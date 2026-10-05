@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/loading_widget.dart';
@@ -12,7 +13,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'operator@demo.smartfleet');
+  final _emailController =
+      TextEditingController(text: 'operator@demo.smartfleet');
   final _passwordController = TextEditingController(text: 'DemoFleet!2026');
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
@@ -69,21 +71,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo / Header
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.35),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.35),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.precision_manufacturing,
+                          color: Colors.white, size: 36),
                     ),
-                    child: const Icon(Icons.precision_manufacturing, color: Colors.white, size: 36),
                   ),
                   const SizedBox(height: 24),
                   const Text(
@@ -96,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Warehouse Operator & Technician Portal',
+                    'Warehouse team portal',
                     style: TextStyle(
                       color: AppColors.textMuted,
                       fontSize: 14,
@@ -112,7 +118,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Email Address',
                       labelStyle: const TextStyle(color: AppColors.textMuted),
-                      prefixIcon: const Icon(Icons.email_outlined, color: AppColors.textMuted),
+                      prefixIcon: const Icon(Icons.email_outlined,
+                          color: AppColors.textMuted),
                       filled: true,
                       fillColor: AppColors.surface,
                       border: OutlineInputBorder(
@@ -125,11 +132,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primaryLight),
+                        borderSide:
+                            const BorderSide(color: AppColors.primaryLight),
                       ),
                     ),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Email is required';
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Email is required';
+                      }
                       if (!val.contains('@')) return 'Invalid email address';
                       return null;
                     },
@@ -144,13 +154,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Password',
                       labelStyle: const TextStyle(color: AppColors.textMuted),
-                      prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textMuted),
+                      prefixIcon: const Icon(Icons.lock_outline,
+                          color: AppColors.textMuted),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                           color: AppColors.textMuted,
                         ),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword),
                       ),
                       filled: true,
                       fillColor: AppColors.surface,
@@ -164,11 +178,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primaryLight),
+                        borderSide:
+                            const BorderSide(color: AppColors.primaryLight),
                       ),
                     ),
                     validator: (val) {
-                      if (val == null || val.isEmpty) return 'Password is required';
+                      if (val == null || val.isEmpty) {
+                        return 'Password is required';
+                      }
                       return null;
                     },
                   ),
@@ -191,11 +208,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? const LoadingWidget()
                           : const Text(
                               'Sign In',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),
                   const SizedBox(height: 32),
+
+                  TextButton(
+                    onPressed: authService.isLoading
+                        ? null
+                        : () => context.go('/register'),
+                    child: const Text('Create a new Operator account'),
+                  ),
+                  const SizedBox(height: 8),
 
                   // Demo Accounts section
                   const Center(
@@ -209,19 +235,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       ActionChip(
-                        label: const Text('Operator', style: TextStyle(color: AppColors.textMain)),
+                        label: const Text('Operator',
+                            style: TextStyle(color: AppColors.textMain)),
                         backgroundColor: AppColors.surface,
                         onPressed: () => _fillDemo('operator@demo.smartfleet'),
                       ),
-                      const SizedBox(width: 8),
                       ActionChip(
-                        label: const Text('Technician', style: TextStyle(color: AppColors.textMain)),
+                        label: const Text('Technician',
+                            style: TextStyle(color: AppColors.textMain)),
                         backgroundColor: AppColors.surface,
-                        onPressed: () => _fillDemo('technician@demo.smartfleet'),
+                        onPressed: () =>
+                            _fillDemo('technician@demo.smartfleet'),
+                      ),
+                      ActionChip(
+                        label: const Text('Supervisor',
+                            style: TextStyle(color: AppColors.textMain)),
+                        backgroundColor: AppColors.surface,
+                        onPressed: () =>
+                            _fillDemo('supervisor@demo.smartfleet'),
                       ),
                     ],
                   ),
