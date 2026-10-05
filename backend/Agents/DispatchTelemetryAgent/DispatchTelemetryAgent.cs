@@ -29,12 +29,6 @@ public class DispatchTelemetryAgent : IDispatchTelemetryAgent
         DispatchTelemetryAgentInput input,
         CancellationToken cancellationToken = default)
     {
-        // -------------------------------------------------------------------------------------------------
-        // TODO: Connect real hand-off from Mission Planner Agent (Chathumini) after integration week.
-        // During development and isolated testing, this agent executes against mocked or API-provided input
-        // conforming to the contract locked in docs/agent-contracts.md.
-        // -------------------------------------------------------------------------------------------------
-
         _logger.LogInformation("Dispatch & Telemetry Agent executing for DispatchRequestId: {RequestId}, Source: {Source}, Dest: {Dest}",
             input.DispatchRequestId, input.SourceZone, input.DestinationZone);
 
