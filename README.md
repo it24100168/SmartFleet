@@ -17,6 +17,18 @@ The [integrated architecture and cross-client workflow](docs/architecture/integr
 
 Operator self-registration creates only Operator accounts. Technician and Supervisor access must be provisioned by trusted backend configuration or demo seed data. The API checks authorization regardless of what either client displays.
 
+## Hosted assessment deployment
+
+| Service | Public URL |
+| --- | --- |
+| React application | https://brave-tree-0ae688500.4.azurestaticapps.net/login |
+| ASP.NET Core API health | https://smartfleet-api-a0gmajhpg2ercjch.eastasia-01.azurewebsites.net/api/health |
+| Swagger UI | https://smartfleet-api-a0gmajhpg2ercjch.eastasia-01.azurewebsites.net/swagger |
+
+The API runs on Azure App Service with PostgreSQL on Neon; React runs on Azure Static Web Apps. The [Azure and Neon deployment guide](docs/AZURE-NEON-DEPLOY.md) describes private configuration, migrations, startup and verification without exposing credentials. The [hosted probe](docs/evidence/hosted-probe-2026-10-05.md) records passing public health, Swagger, React direct-route and CORS checks on 5 October 2026. The team also completed a [hosted Android → React Supervisor approval → Android workflow](docs/evidence/hosted-cross-client-2026-10-05.md) for one matching Critical request; see that record for the evidence limits and remaining video/audit capture.
+
+For Android, build with `--dart-define=API_BASE_URL=https://smartfleet-api-a0gmajhpg2ercjch.eastasia-01.azurewebsites.net/api`. A release APK targeting this URL was built and launched on the emulator; see the [APK evidence](docs/evidence/android-release-2026-10-05.md). The local `.demo/SE3090_G02.apk` copy is ignored by Git and must be supplied separately with the submission.
+
 ## Run locally with PostgreSQL
 
 Prerequisites: Docker Desktop, .NET 8 SDK, Node.js/npm, and Flutter plus Android Studio to run the Android app. From a PowerShell session in the repository root:
@@ -49,7 +61,7 @@ flutter test --no-pub
 flutter analyze --no-pub
 ```
 
-The PostgreSQL tests use `SMARTFLEET_TEST_POSTGRES`, which the launcher sets in the same PowerShell session. Without it, database tests skip. The [phases checklist](docs/PHASES.md) and [evidence files](docs/evidence) record what has actually passed and what remains. The [native/React Critical workflow](docs/evidence/native-react-critical-workflow-2026-10-05.md) and [live Open-Meteo observation](docs/evidence/weather-live-2026-10-05.md) have local evidence. Cloud deployment, a final public-API Android APK, broader interaction tests and the group submission artifacts are still open.
+The PostgreSQL tests use `SMARTFLEET_TEST_POSTGRES`, which the launcher sets in the same PowerShell session. Without it, database tests skip. The [phases checklist](docs/PHASES.md) and [evidence files](docs/evidence) record what has actually passed and what remains. The [native/React Critical workflow](docs/evidence/native-react-critical-workflow-2026-10-05.md) and [live Open-Meteo observation](docs/evidence/weather-live-2026-10-05.md) have local evidence. The public deployment, HTTPS-targeting Android APK, role authentication and one hosted cross-client approval sequence have evidence; broader interaction tests, complete audit/video capture and group submission artifacts remain open.
 
 ## Repository map
 
