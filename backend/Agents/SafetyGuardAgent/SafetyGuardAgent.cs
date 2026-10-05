@@ -26,7 +26,6 @@ public class SafetyGuardAgent : ISafetyGuardAgent
     /// </summary>
     public async Task<SafetyGuardOutput> EvaluateSafetyAsync(SafetyGuardInput input, CancellationToken cancellationToken = default)
     {
-        // TODO: [Integration Week] Replace mocked input with aggregated pipeline output from MissionPlannerAgent, DispatchTelemetryAgent, and MaintenanceMechanicAgent
         ArgumentNullException.ThrowIfNull(input);
 
         _logger.LogInformation(

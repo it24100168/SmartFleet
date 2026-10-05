@@ -36,6 +36,21 @@ public class PagedResult<T>
     public bool HasNextPage => Page < TotalPages;
 }
 
+public class RegisterRoverDto
+{
+    [Required]
+    [RegularExpression(@"^RO-[0-9]{2,3}$", ErrorMessage = "Use a rover code such as RO-07.")]
+    public string Identifier { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(64)]
+    public string LocationZone { get; set; } = string.Empty;
+}
+
+public class UpdateRoverConfigurationDto : RegisterRoverDto
+{
+}
+
 public class UpdateRoverSimulationDto
 {
     public RoverStatus? Status { get; set; }

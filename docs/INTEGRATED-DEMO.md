@@ -2,6 +2,22 @@
 
 The four feature branches are combined with a durable backend workflow and a React fleet simulator. Robots are simulated database records, not physical hardware. The map shows illustrative warehouse routes driven by persisted mission progress; it is not a collision-avoidance or robotics physics engine. All four agents currently use deterministic rules, not an LLM.
 
+## Ten-minute hosted assessment walkthrough
+
+Use the public [React site](https://brave-tree-0ae688500.4.azurestaticapps.net/login), the HTTPS-targeting APK described in [mobile setup](../mobile/README.md), and the [public API health/Swagger links](AZURE-NEON-DEPLOY.md). Sign in to React as the privately provisioned Supervisor and Android as a registered Operator; never show credentials in the recording. Do not use external AI assistants during the final demonstration or viva. Keep the same request ID visible across clients.
+
+| Approximate time | Show live | Evidence to capture |
+| --- | --- | --- |
+| 0:00–1:00 | Public API health, React login, Android app and the six-rover fleet view. State that rovers and map routes are a database-driven simulation. | URLs, production PostgreSQL health and clear role separation. |
+| 1:00–2:30 | Android Operator submits an A1 → B3 Critical delivery using a valid IST slot. Open its plan and My History. | New request ID, plan, `AwaitingApproval`, and reserved rover staying still. |
+| 2:30–4:00 | React Supervisor finds that ID in Approval Center. Open its agent assessment and execution/audit tabs; approve with a note. | Four distinct agent roles, controlled tools, validation, persisted state and authorized decision. |
+| 4:00–5:00 | Android My History updates to moving/completed; React fleet view shows rover status, destination and battery. | Same ID across Android and React, with completion after approval. Allow roughly 40 seconds for simulated travel. |
+| 5:00–7:00 | Inspect all six rovers; demonstrate a separate low-battery charge or motor-fault recovery/repair scenario only on an idle rover. | Status changes, safety stop, Technician/Supervisor controls and audit trail. Do not fault the active delivery rover. |
+| 7:00–8:30 | Show invalid-zone validation and an agent safe-failure or risk case, using existing test evidence if live weather is unsuitable. | Correctly rejected action, no unauthorized movement, meaningful third-party weather decision. |
+| 8:30–10:00 | Show Swagger, PostgreSQL/ER diagram, final green GitHub Actions, reviewed PRs, APK and each member's owned component. | Traceable integration, tests, deployment and individual ownership. |
+
+The [hosted `#a8a3fb72` run](evidence/hosted-cross-client-2026-10-05.md) already supplies matching pending/completed Android captures; its React approval was observed by the team but the repository lacks a React screenshot and full hosted audit export. Capture those in the final video. Critical reservations expire after about ten minutes, so approve promptly or create a fresh request. A newly registered Operator cannot see approval controls; the React Approval Center route is Supervisor-only.
+
 ## Start locally
 
 From `D:\SmartFleet`, open two PowerShell terminals:

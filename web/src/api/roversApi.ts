@@ -36,6 +36,11 @@ export interface UpdateRoverSimulationPayload {
   locationZone?: string;
 }
 
+export interface RoverConfigurationPayload {
+  identifier: string;
+  locationZone: string;
+}
+
 export const roversApi = {
   getRovers: async (params?: RoverQueryParameters): Promise<PagedResult<Rover>> => {
     const response = await axiosClient.get<PagedResult<Rover>>('/rovers', { params });
@@ -44,6 +49,16 @@ export const roversApi = {
 
   getRoverById: async (id: string): Promise<Rover> => {
     const response = await axiosClient.get<Rover>(`/rovers/${id}`);
+    return response.data;
+  },
+
+  registerRover: async (payload: RoverConfigurationPayload): Promise<Rover> => {
+    const response = await axiosClient.post<Rover>('/rovers', payload);
+    return response.data;
+  },
+
+  updateRoverConfiguration: async (id: string, payload: RoverConfigurationPayload): Promise<Rover> => {
+    const response = await axiosClient.put<Rover>(`/rovers/${id}/configuration`, payload);
     return response.data;
   },
 
