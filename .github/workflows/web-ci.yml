@@ -1,7 +1,7 @@
 name: Web build
 on:
   push:
-    branches: [main, integration/fleet-workflow]
+    branches: [main, integration/fleet-workflow, assessment/final-readiness]
   pull_request:
     branches: [main]
 jobs:
